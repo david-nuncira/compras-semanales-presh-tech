@@ -1,6 +1,8 @@
-import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { ProveedorSesion, useSesion } from './contexto/Sesion.tsx';
+import { supabase } from './supabase.ts';
 import type { Rol } from './tipos.ts';
 import { Cargando } from './componentes/UI.tsx';
 
@@ -64,10 +66,33 @@ function Cabecera() {
   );
 }
 
+/** Abre la pantalla de cambio de contraseña al volver desde un enlace Auth. */
+function RedirigirRecuperacion() {
+  const navegar = useNavigate();
+
+  useEffect(() => {
+    const fragmento = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    if (fragmento.get('type') === 'recovery') {
+      navegar('/restablecer', { replace: true });
+    }
+
+    const { data: sub } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === 'PASSWORD_RECOVERY') {
+        // Diferir la navegación fuera del bloqueo interno de Auth.
+        window.setTimeout(() => navegar('/restablecer', { replace: true }), 0);
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [navegar]);
+
+  return null;
+}
+
 export function App() {
   return (
     <ProveedorSesion>
       <BrowserRouter>
+        <RedirigirRecuperacion />
         <Cabecera />
         <Routes>
           <Route path="/acceso" element={<Acceso />} />

@@ -42,17 +42,24 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let vivo = true;
-    supabase.auth.getSession().then(async ({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
       if (!vivo) return;
       sesionRef.current = data.session;
       setSesion(data.session);
-      if (data.session) await recargarPerfil();
       setCargando(false);
+      // No esperar llamadas a la API dentro del bloqueo de Auth.
+      if (data.session) window.setTimeout(() => { if (vivo) void recargarPerfil(); }, 0);
+    }).catch(() => {
+      if (vivo) setCargando(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_evento, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_evento, s) => {
       sesionRef.current = s;
       setSesion(s);
-      if (s) await recargarPerfil(); else setPerfil(null);
+      if (s) {
+        // onAuthStateChange corre bajo un bloqueo interno de Supabase Auth.
+        // Diferir la RPC evita un deadlock que deja el inicio de sesión cargando.
+        window.setTimeout(() => { if (vivo) void recargarPerfil(); }, 0);
+      } else setPerfil(null);
     });
     return () => { vivo = false; sub.subscription.unsubscribe(); };
   }, [recargarPerfil]);
