@@ -1,0 +1,15 @@
+# Dependencias y compilados (se regeneran)
+node_modules/
+dist/
+
+# Secretos y entornos: NUNCA al repositorio
+.env
+.env.*
+!.env.example
+
+# Respaldos locales (contienen datos empresariales)
+respaldos/
+
+# Basura de sistema
+.DS_Store
+Thumbs.db

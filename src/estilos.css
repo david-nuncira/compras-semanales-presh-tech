@@ -1,0 +1,192 @@
+/* Compras Semanales Presh Tech — estilos sobrios, legibles y adaptables.
+   Sin animaciones ni dependencias visuales. Texto siempre junto al color. */
+
+:root {
+  --tinta: #1c2430;
+  --tinta-suave: #5a6676;
+  --fondo: #f5f6f8;
+  --tarjeta: #ffffff;
+  --borde: #d7dce3;
+  --primario: #14532d;
+  --primario-claro: #e7f3ec;
+  --peligro: #9f1d1d;
+  --peligro-claro: #fdeaea;
+  --aviso: #92610c;
+  --aviso-claro: #fdf3dd;
+  --info: #1e4e79;
+  --info-claro: #e8f1fa;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  color: var(--tinta);
+  background: var(--fondo);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+h1, h2, h3, h4 { line-height: 1.2; margin: 0.4em 0; }
+h1 { font-size: 1.35rem; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1.02rem; }
+a { color: var(--info); }
+
+/* Estructura */
+.cabecera {
+  background: var(--primario);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1rem;
+}
+.cabecera .marca { font-weight: 700; font-size: 1.05rem; margin-right: auto; }
+.cabecera nav { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+.cabecera nav a {
+  color: #eaf3ee; text-decoration: none; padding: 0.3rem 0.55rem; border-radius: 6px;
+}
+.cabecera nav a.activo, .cabecera nav a:hover { background: rgba(255,255,255,0.16); color: #fff; }
+.cabecera .usuario { font-size: 0.85rem; opacity: 0.95; }
+.contenido { max-width: 1180px; margin: 0 auto; padding: 1rem; }
+
+.tarjeta {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Tablas */
+.tabla-envoltura { overflow-x: auto; }
+table.tabla { border-collapse: collapse; width: 100%; background: var(--tarjeta); }
+.tabla th, .tabla td {
+  border: 1px solid var(--borde);
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+.tabla th { background: #eef1f5; font-weight: 600; white-space: nowrap; }
+.tabla tr:nth-child(even) td { background: #fafbfc; }
+.tabla .numero { text-align: right; white-space: nowrap; }
+
+/* Formularios */
+form.formulario, .formulario { display: grid; gap: 0.7rem; max-width: 760px; }
+.fila-campos { display: grid; gap: 0.7rem; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.campo { display: flex; flex-direction: column; gap: 0.22rem; }
+.campo-etiqueta { font-weight: 600; font-size: 0.9rem; }
+.campo-error { color: var(--peligro); font-size: 0.85rem; }
+input, select, textarea {
+  font: inherit; color: inherit;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--borde);
+  border-radius: 7px;
+  background: #fff;
+  max-width: 100%;
+}
+input:focus, select:focus, textarea:focus, button:focus {
+  outline: 3px solid #9ec5fe; outline-offset: 1px;
+}
+
+/* Botones */
+button { font: inherit; cursor: pointer; border-radius: 7px; }
+.boton-primario {
+  background: var(--primario); color: #fff; border: 1px solid var(--primario);
+  padding: 0.5rem 0.9rem; font-weight: 600;
+}
+.boton-primario:disabled { opacity: 0.55; cursor: not-allowed; }
+.boton-secundario {
+  background: #fff; color: var(--tinta); border: 1px solid var(--borde);
+  padding: 0.45rem 0.8rem;
+}
+.boton-peligro {
+  background: #fff; color: var(--peligro); border: 1px solid var(--peligro);
+  padding: 0.45rem 0.8rem;
+}
+.boton-silencioso { background: transparent; border: none; color: var(--info); padding: 0.25rem 0.4rem; }
+.enlace { background: none; border: none; color: var(--info); text-decoration: underline; padding: 0; cursor: pointer; font: inherit; }
+
+/* Mensajes */
+.mensaje { padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid; }
+.mensaje-error { background: var(--peligro-claro); border-color: var(--peligro); color: var(--peligro); }
+.mensaje-exito { background: var(--primario-claro); border-color: var(--primario); color: var(--primario); }
+.cargando { color: var(--tinta-suave); }
+.texto-suave { color: var(--tinta-suave); font-size: 0.88rem; }
+
+/* Insignias de estado (texto + color, nunca solo color) */
+.insignia, .insignia-suave {
+  display: inline-block; padding: 0.12rem 0.5rem; border-radius: 999px;
+  font-size: 0.8rem; font-weight: 600; border: 1px solid; white-space: nowrap;
+}
+.insignia-suave { color: var(--tinta-suave); border-color: var(--borde); background: #fff; }
+.etapa-borrador { background: #f0f0f0; border-color: #bbb; color: #444; }
+.etapa-solicitado { background: var(--info-claro); border-color: var(--info); color: var(--info); }
+.etapa-en_cotizacion { background: #fff7e6; border-color: #b97c10; color: #8a5d0b; }
+.etapa-cotizado { background: #fdf3dd; border-color: var(--aviso); color: var(--aviso); }
+.etapa-comprado { background: #eae6fb; border-color: #5b48a2; color: #4a3b85; }
+.etapa-en_transito { background: #e6f4f9; border-color: #1272a0; color: #0f5e84; }
+.etapa-recibido_parcial { background: #e3f2e8; border-color: #2f7d4f; color: #276a43; }
+.etapa-recibido_total { background: var(--primario-claro); border-color: var(--primario); color: var(--primario); }
+.etapa-cerrado { background: #e8e8e8; border-color: #666; color: #333; }
+.etapa-cancelado { background: var(--peligro-claro); border-color: var(--peligro); color: var(--peligro); }
+.aprobacion-pendiente { background: var(--aviso-claro); border-color: var(--aviso); color: var(--aviso); }
+.aprobacion-aprobada { background: var(--primario-claro); border-color: var(--primario); color: var(--primario); }
+.aprobacion-rechazada { background: var(--peligro-claro); border-color: var(--peligro); color: var(--peligro); }
+.aprobacion-sin_solicitar { background: #f0f0f0; border-color: #999; color: #555; }
+.aprobacion-reemplazada { background: #eee; border-color: #888; color: #555; }
+
+.atraso { color: var(--peligro); font-weight: 700; }
+
+/* Tablero */
+.tablero { display: grid; gap: 0.8rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.tablero .ficha {
+  background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px;
+  padding: 0.7rem; text-align: center;
+}
+.tablero .ficha b { display: block; font-size: 1.5rem; }
+
+/* Modal */
+.modal-fondo {
+  position: fixed; inset: 0; background: rgba(10, 14, 20, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 50;
+}
+.modal {
+  background: #fff; border-radius: 12px; padding: 1rem; width: min(560px, 100%);
+  max-height: 90vh; overflow: auto;
+}
+.modal-cabecera { display: flex; justify-content: space-between; align-items: center; }
+.modal-acciones { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 0.8rem; }
+
+/* Filtros */
+.filtros { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; margin-bottom: 0.8rem; }
+.filtros .campo { min-width: 150px; }
+
+/* Paginador */
+.paginador { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; color: var(--tinta-suave); font-size: 0.9rem; }
+
+/* Listas */
+.lista-adjuntos { list-style: none; padding: 0; margin: 0.3rem 0; }
+.lista-adjuntos li { padding: 0.25rem 0; border-bottom: 1px dashed var(--borde); }
+
+/* Acceso */
+.acceso {
+  max-width: 420px; margin: 7vh auto; background: var(--tarjeta);
+  border: 1px solid var(--borde); border-radius: 12px; padding: 1.3rem;
+}
+.acceso .marca-grande { text-align: center; font-size: 1.25rem; font-weight: 800; color: var(--primario); }
+
+/* Utilidades */
+.acciones-fila { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+.separador { border: none; border-top: 1px solid var(--borde); margin: 0.9rem 0; }
+.oculto-movil { }
+@media (max-width: 640px) {
+  .oculto-movil { display: none; }
+  body { font-size: 14px; }
+  .contenido { padding: 0.6rem; }
+}
+@media print {
+  .cabecera, .filtros, button { display: none !important; }
+}
