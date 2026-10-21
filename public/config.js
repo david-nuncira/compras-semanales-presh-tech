@@ -13,7 +13,7 @@
 //     sin el reto anti-robots; actívalo antes de abrir a toda la empresa.)
 // ============================================================
 window.__APP_CONFIG__ = {
-  SUPABASE_URL: "https://jvnbirxpotnxosxzgarq.supabase.co/rest/v1/",
+  SUPABASE_URL: "https://jvnbirxpotnxosxzgarq.supabase.co",
   SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2bmJpcnhwb3RueG9zeHpnYXJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1ODgwNTQsImV4cCI6MjEwODE2NDA1NH0.NNDIW-SGxNJjxvqeWaGvM2vhcPP-HlCh0pb5cwb9bR0",
   TURNSTILE_SITE_KEY: "0x4AAAAAAFfJ98T7Fm8bdLg4"
 };
