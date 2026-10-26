@@ -1,17 +1,74 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { Etapa, EstadoAprobacion } from '../tipos.ts';
-import { ETIQUETA_ETAPA, ETIQUETA_APROBACION } from '../tipos.ts';
+import type { Etapa, EstadoAprobacion, EstadoSolicitud } from '../tipos.ts';
+import { ETIQUETA_ETAPA, ETIQUETA_APROBACION, ETIQUETA_ESTADO_SOLICITUD, RECORRIDO } from '../tipos.ts';
 
-/** Mensaje de error accesible (texto, no solo color). */
-export function MensajeError({ texto }: { texto: string | null }) {
-  if (!texto) return null;
-  return <p className="mensaje mensaje-error" role="alert">⚠ {texto}</p>;
+/**
+ * Mensaje de error accesible (texto, no solo color).
+ * flotante: se muestra fijo en pantalla (abajo a la derecha) para que se vea
+ * sin tener que desplazarse hasta el inicio de la página.
+ */
+export function MensajeError({ texto, flotante, alCerrar }: { texto: string | null; flotante?: boolean; alCerrar?: () => void }) {
+  const [oculto, setOculto] = useState<string | null>(null);
+  if (!texto || oculto === texto) return null;
+  return (
+    <p className={`mensaje mensaje-error${flotante ? ' mensaje-flotante' : ''}`} role="alert">
+      ⚠ {texto}
+      {flotante ? <button type="button" className="boton-silencioso" aria-label="Cerrar aviso"
+        onClick={() => { setOculto(texto); alCerrar?.(); }}>✕</button> : null}
+    </p>
+  );
 }
 
-export function MensajeExito({ texto }: { texto: string | null }) {
-  if (!texto) return null;
-  return <p className="mensaje mensaje-exito" role="status">✓ {texto}</p>;
+export function MensajeExito({ texto, flotante, alCerrar }: { texto: string | null; flotante?: boolean; alCerrar?: () => void }) {
+  const [oculto, setOculto] = useState<string | null>(null);
+  useEffect(() => {
+    if (!flotante || !texto) return;
+    const t = setTimeout(() => setOculto(texto), 9000);
+    return () => clearTimeout(t);
+  }, [flotante, texto]);
+  if (!texto || oculto === texto) return null;
+  return (
+    <p className={`mensaje mensaje-exito${flotante ? ' mensaje-flotante' : ''}`} role="status">
+      ✓ {texto}
+      {flotante ? <button type="button" className="boton-silencioso" aria-label="Cerrar aviso"
+        onClick={() => { setOculto(texto); alCerrar?.(); }}>✕</button> : null}
+    </p>
+  );
+}
+
+/** Estado de la solicitud con texto y color. */
+export function InsigniaSolicitud({ estado }: { estado: EstadoSolicitud }) {
+  return <span className={`insignia sol-${estado}`}>{ETIQUETA_ESTADO_SOLICITUD[estado] ?? estado}</span>;
+}
+
+/** Línea de avance del recorrido principal. */
+export function LineaRecorrido({ estado, resumen }: { estado: EstadoSolicitud; resumen: Record<string, number> | null }) {
+  const etapas = resumen ?? {};
+  const hay = (xs: string[]) => xs.some((x) => (etapas[x] ?? 0) > 0);
+  let actual = 0;
+  if (estado === 'pendiente_aprobacion') actual = 1;
+  else if (estado === 'programada') actual = 2;
+  else if (estado === 'recibida_compras' || estado === 'enviada') {
+    actual = 3;
+    if (hay(['en_cotizacion', 'cotizado', 'comprado', 'en_transito'])) actual = 4;
+    if (hay(['recibido_parcial', 'recibido_total'])) actual = 5;
+    const vivos = Object.entries(etapas).filter(([k]) => k !== 'cancelado').reduce((s, [, n]) => s + n, 0);
+    if (vivos > 0 && (etapas['cerrado'] ?? 0) === vivos) actual = 6;
+  }
+  const finalNegativo = estado === 'rechazada' || estado === 'cancelada';
+  return (
+    <ol className="recorrido" aria-label="Avance de la solicitud">
+      {RECORRIDO.map((p, i) => (
+        <li key={p.clave} className={finalNegativo ? 'recorrido-inactivo' : i < actual ? 'recorrido-hecho' : i === actual ? 'recorrido-actual' : ''}
+            aria-current={!finalNegativo && i === actual ? 'step' : undefined}>
+          <span>{i < actual && !finalNegativo ? '✓ ' : ''}{p.titulo}</span>
+        </li>
+      ))}
+      {estado === 'en_correccion' ? <li className="recorrido-alerta"><span>↩ Devuelta para corrección</span></li> : null}
+      {finalNegativo ? <li className="recorrido-alerta"><span>✕ {ETIQUETA_ESTADO_SOLICITUD[estado]}</span></li> : null}
+    </ol>
+  );
 }
 
 export function Cargando({ texto = 'Cargando…' }: { texto?: string }) {
@@ -53,15 +110,21 @@ export function Modal({ titulo, abierto, alCerrar, children }: {
   );
 }
 
-/** Campo con etiqueta visible y error asociado. */
-export function Campo({ etiqueta, requerido, error, children }: {
-  etiqueta: string; requerido?: boolean; error?: string | null; children: ReactNode;
+/** Campo con etiqueta visible, marca de obligatorio/opcional, ayuda y error junto al campo. */
+export function Campo({ etiqueta, requerido, opcional, ayuda, error, children }: {
+  etiqueta: string; requerido?: boolean; opcional?: boolean; ayuda?: string;
+  error?: string | null; children: ReactNode;
 }) {
   return (
-    <label className="campo">
-      <span className="campo-etiqueta">{etiqueta}{requerido ? ' *' : ''}</span>
+    <label className={`campo${error ? ' campo-con-error' : ''}`}>
+      <span className="campo-etiqueta">
+        {etiqueta}
+        {requerido ? <span className="marca-obligatorio" title="Obligatorio"> * obligatorio</span> : null}
+        {opcional ? <span className="marca-opcional"> (opcional)</span> : null}
+      </span>
       {children}
-      {error ? <span className="campo-error">{error}</span> : null}
+      {ayuda && !error ? <span className="campo-ayuda">{ayuda}</span> : null}
+      {error ? <span className="campo-error" role="alert">⚠ {error}</span> : null}
     </label>
   );
 }
@@ -75,6 +138,7 @@ export function BotonConMotivo({ etiqueta, titulo, descripcion, onConfirmar, cla
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [hecho, setHecho] = useState<string | null>(null);
   return (
     <>
       <button type="button" className={clase ?? 'boton-secundario'} onClick={() => { setAbierto(true); setMotivo(''); setError(null); }}>
@@ -91,7 +155,7 @@ export function BotonConMotivo({ etiqueta, titulo, descripcion, onConfirmar, cla
           <button type="button" className="boton-primario" disabled={ocupado || motivo.trim().length === 0}
             onClick={async () => {
               setOcupado(true); setError(null);
-              try { await onConfirmar(motivo.trim()); setAbierto(false); }
+              try { await onConfirmar(motivo.trim()); setAbierto(false); setHecho(`${titulo}: guardado.`); }
               catch (e) { setError(e instanceof Error ? e.message : String(e)); }
               finally { setOcupado(false); }
             }}>
@@ -99,6 +163,7 @@ export function BotonConMotivo({ etiqueta, titulo, descripcion, onConfirmar, cla
           </button>
         </div>
       </Modal>
+      <MensajeExito texto={hecho} flotante alCerrar={() => setHecho(null)} />
     </>
   );
 }

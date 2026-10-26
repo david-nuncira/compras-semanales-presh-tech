@@ -1,35 +1,54 @@
 // Acceso a datos compartido (catálogos, actualización periódica moderada).
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, limpiarError } from './supabase.ts';
-import type { Area, CentroCosto, Proveedor } from './tipos.ts';
+import type {
+  Area, CentroCosto, Proveedor, AreaCentro, UnidadMedida, CategoriaSolicitud, CicloCalendario
+} from './tipos.ts';
 
 export interface Catalogos {
   areas: Area[];
   centros: CentroCosto[];
   proveedores: Proveedor[];
+  asociaciones: AreaCentro[];
+  unidades: UnidadMedida[];
+  categorias: CategoriaSolicitud[];
 }
 
 export function useCatalogos(incluirInactivos = false) {
   const [cat, setCat] = useState<Catalogos | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cargar = useCallback(async () => {
-    const [a, c, p] = await Promise.all([
+    const [a, c, p, x, u, k] = await Promise.all([
       supabase.from('areas').select('*').order('nombre'),
       supabase.from('centros_costo').select('*').order('codigo'),
-      supabase.from('proveedores').select('*').order('nombre')
+      supabase.from('proveedores').select('*').order('nombre'),
+      supabase.from('area_centros_costo').select('*'),
+      supabase.from('unidades_medida').select('*').order('nombre'),
+      supabase.from('categorias_solicitud').select('*').order('nombre')
     ]);
     const e = a.error ?? c.error ?? p.error;
     if (e) { setError(limpiarError(e.message)); return; }
     const filtra = <T extends { activo: boolean }>(xs: T[]) =>
-      incluirInactivos ? xs : xs.filter((x) => x.activo);
+      incluirInactivos ? xs : xs.filter((v) => v.activo);
     setCat({
       areas: filtra((a.data ?? []) as Area[]),
       centros: filtra((c.data ?? []) as CentroCosto[]),
-      proveedores: filtra((p.data ?? []) as Proveedor[])
+      proveedores: filtra((p.data ?? []) as Proveedor[]),
+      // Si la base aún no tiene la mejora v2, estas listas llegan vacías.
+      asociaciones: filtra((x.data ?? []) as AreaCentro[]),
+      unidades: filtra((u.data ?? []) as UnidadMedida[]),
+      categorias: filtra((k.data ?? []) as CategoriaSolicitud[])
     });
   }, [incluirInactivos]);
   useEffect(() => { void cargar(); }, [cargar]);
   return { cat, error, recargar: cargar };
+}
+
+/** Centros de costo ACTIVOS y AUTORIZADOS para un área. */
+export function centrosDelArea(cat: Catalogos | null, areaId: string | null | undefined): CentroCosto[] {
+  if (!cat || !areaId) return [];
+  const ids = new Set(cat.asociaciones.filter((x) => x.area_id === areaId && x.activo).map((x) => x.centro_costo_id));
+  return cat.centros.filter((c) => c.activo && ids.has(c.id));
 }
 
 /**
@@ -50,11 +69,11 @@ export function useActualizacionPeriodica(fn: () => void | Promise<void>, ms = 6
 }
 
 /** Perfiles visibles (para selects de aprobador, solicitante en filtros, etc.). */
-export interface PerfilBreve { id: string; nombre: string; estado: string; }
+export interface PerfilBreve { id: string; nombre: string; estado: string; area_id?: string | null; correo?: string | null; }
 
 export async function listarPerfiles(): Promise<PerfilBreve[]> {
   const { data, error } = await supabase
-    .from('perfiles').select('id, nombre, estado').order('nombre');
+    .from('perfiles').select('id, nombre, estado, area_id, correo').order('nombre');
   if (error) throw new Error(limpiarError(error.message));
   return (data ?? []) as PerfilBreve[];
 }
@@ -66,4 +85,13 @@ export async function listarAprobadores(): Promise<PerfilBreve[]> {
   if (error) throw new Error(limpiarError(error.message));
   const filas = (data ?? []) as unknown as Array<{ perfiles: PerfilBreve | null }>;
   return filas.map((f) => f.perfiles).filter((p): p is PerfilBreve => !!p && p.estado === 'activo');
+}
+
+/** Próximos ciclos de recepción (calendario visual). */
+export async function proximosCiclos(categoria: string | null, semanas: number, extra: boolean): Promise<CicloCalendario[]> {
+  const { data, error } = await supabase.rpc('fn_calendario_proximos', {
+    p_categoria: categoria, p_semanas: semanas, p_extra: extra
+  });
+  if (error) throw new Error(limpiarError(error.message));
+  return (data ?? []) as CicloCalendario[];
 }

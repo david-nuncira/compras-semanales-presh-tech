@@ -1,77 +1,104 @@
 # ESTADO DEL PROYECTO — Compras Semanales Presh Tech
 
-> Bitácora persistente. Si la conversación se corta, continuar desde "Punto de continuación".
-> Última actualización: 2026-10-21 (turno 2, cierre). Entrega gerencial: viernes 23/10/2026.
+> Bitácora persistente. Última actualización: 2026-10-26 (mejora v2).
 
-## IMPLEMENTADO (código completo, sin pseudocódigo ni funciones vacías)
+## Contexto
 
-**Base de datos (supabase/)**: migraciones 0001–0012 (≈3.840 líneas) = esquema relacional
-(perfiles+roles acumulables, áreas, centros de costo, proveedores, solicitudes+artículos
-con consecutivo de servidor y semana lunes-domingo, cotizaciones con selección inequívoca,
-aprobaciones versionadas con snapshot, compras con importes calculados/validados en servidor,
-historial de fechas estimadas, movimientos físicos con saldos bajo FOR UPDATE e idempotencia
-por op_id, novedades, adjuntos + bucket privado con límites en Storage y RLS por ruta,
-compras externas con referencia única, auditoría por disparadores no editable, tabla
-explícita de transiciones, staging de importación CSV con mapeo de estados, endurecimiento
-de GRANTs) + `setup_completo.sql` (pegar 1 vez) + bootstrap (90 admin por UUID, 95 demo
-ficticia) + Edge Function `recuperacion-supervisada` (enlace un solo uso, auditado sin token,
-límite 10/hora) + suite `pruebas/pruebas_aceptacion.sql` (casos 1–11, candado anti-producción,
-salida PASA/FALLA, reejecutable).
+- La aplicación **está publicada por David** en Cloudflare Pages + Supabase.
+- El 26-oct David compartió el ZIP de su repositorio. Solo difería de la línea base en 3
+  archivos: `Sesion.tsx` (evita el bloqueo de Supabase Auth), `App.tsx`
+  (`RedirigirRecuperacion`) y `config.js` (valores públicos).
+- Repositorio local con git:
+  - `main` = línea base del 21-oct.
+  - `produccion` = estado real de GitHub (26-oct).
+  - `mejora/aprobacion-jefe-calendario` = desarrollo v2.
+  - **`mejora/v2-integrada` = v2 fusionada sobre producción.** Esta es la que se entrega; el
+    único conflicto fue `App.tsx`, resuelto a mano.
+- Fuente de requisitos: transcripción “Feedback App” (reunión con Compras) + instrucción
+  prioritaria de aprobación del jefe.
 
-**Frontend (src/)**: 33 archivos TS/TSX. Acceso con registro pendiente + Turnstile opcional,
-Restablecer, Pendiente, Tablero con resumen del conjunto autorizado, Mis solicitudes
-(borradores, artículos, adjuntos con compresión, enviar/corregir/reenviar/cancelar/reprogramar,
-confirmación de entregas, novedades), Gestión de compras (filtros+export sobre todo el
-conjunto, ficha completa del artículo: cotizaciones, aprobación, compra, fecha estimada con
-historial, movimientos y saldos, anulación, cierre/reapertura, novedades, adjuntos, historial
-de cambios), Aprobaciones, Almacén, Compras externas (tipo+registro corporativo+vínculo),
-Reportes de costos (por área/CC/mes/proveedor, monedas separadas, sin doble conteo, export
-seguro), Administración (usuarios, catálogos, auditoría, recuperación, importación CSV con
-informe y zona de revisión). Bloqueo optimista por versión en todo. Mensajes en español.
+## v2 · IMPLEMENTADO (en la rama)
 
-**Documentación (docs/ + README + ESTADO)**: GUIA_DESPLIEGUE (desde cero, clic a clic, ruta A
-GitHub+nube de Cloudflare sin instalar nada; ruta B local), PRIMER_ADMINISTRADOR,
-RESPALDO_Y_RESTAURACION + scripts/respaldo.ps1 (descarga/subida de Storage), MANUAL_ROLES,
-MATRIZ_ACEPTACION (15 casos con método de demostración), GUION_DEMO (10 min + limitaciones +
-pendientes del negocio), CONSUMO_Y_LIMITES, .env.example sin secretos, .gitignore.
+**Base de datos (aditiva, conserva datos):**
 
-## PROBADO DE VERDAD (ejecutado en este entorno, 21/10)
+| Archivo | Contenido |
+|---|---|
+| `0013_valores_nuevos.sql` | Valores de enum; se ejecuta solo |
+| `0014` | Jerarquía (jefe y ruta superior por área), área ↔ centro de costo, unidades, categorías y ventanas, calendario y festivos, columnas de fechas y flujo, versiones, aprobaciones del jefe, devoluciones, notificaciones, cola de correos, permisos granulares, RLS nueva (Compras solo ve lo liberado; borradores solo su autor), disparadores de reglas |
+| `0015` | Calendario (`calcular_ciclo`), envío a aprobación, decisión del jefe, liberación programada + avisos agrupados, devoluciones, cancelación y reprogramación, administración de estructura y permisos, historial, indicadores, vistas, servicio de correo, barreras operativas |
+| `0016` | Privilegios mínimos |
+| Otros | `setup_mejora_v2.sql` (0014-0016); `bootstrap/96_programar_tareas.sql` (pg_cron); `diagnostico/00_diagnostico_previo.sql` + generador (huellas MD5 de 15 funciones reemplazadas + 4 sensibles al inicio de sesión) |
+| Función `despachar-correos` | Microsoft Graph, cola idempotente, reintentos |
 
-- `pruebas-logica/` con Node 22: **15/15 PASA** — semanas ISO (incl. 2026-S53), atrasos
-  null≠0, parseNumero es-CO, export CSV con BOM/comillas/decimal coma y neutralización de
-  fórmulas (= + - @ TAB), Windows-1252 (Ñ/“”/€), parser CSV con comillas y multilínea, y el
-  **CSV real del área**: 198 registros, encabezado fila 4, 183 con nombre, 8 variantes de
-  estado {123/14/12/5/4/13/3/9}, 12 sin fecha, 7 fechas rotas, leyenda final completa.
-- Verificador estático propio: 132 importaciones relativas y 286 nombres importados → 0 rotos;
-  hooks siempre importados; llaves/paréntesis balanceados (1 falso positivo por comentario).
-- Revisión manual del SQL con 3 defectos corregidos (DELETE trigger con NEW, resumen del
-  tablero que evadía RLS por SECURITY DEFINER→invoker, orden de bloqueo en selección de
-  cotización) + endurecimiento de EXECUTE en esquema app.
+**Frontend:**
+- Páginas nuevas: aprobación del jefe, consulta global, notificaciones, estructura y calendario.
+- Páginas renovadas: Mis solicitudes, detalle, Gestión de compras, almacén, tablero, usuarios, catálogos.
+- Componentes: adjuntos (arrastrar y soltar, progreso, vista previa), calendario de semanas,
+  historial, avisos flotantes, campos con obligatorio/opcional y error junto al campo.
+- Guarda de vista previa: las ramas usan `config.pruebas.js`, nunca producción.
+- **Archivos de acceso sin cambios.**
 
-## NO PROBADO AÚN (pendiente de ejecución real — honesto)
+**Documentación (`docs/v2`):** guía para aplicar, guía de configuración, correos con Graph, diagnóstico y decisiones, resultados de pruebas; MANUAL_ROLES y README actualizados.
 
-- Migraciones SQL nunca ejecutadas contra un PostgreSQL vivo (sandbox sin red de paquetes).
-  Se ejecutan el VIERNES: `setup_completo.sql` + suite en el proyecto Supabase de PRUEBAS.
-- `vite build`/`tsc` nunca corridos (misma restricción): compila la nube de Cloudflare
-  (ruta A). Riesgo asumido: erratas de tipos; mitigación: build sin bloqueo por tipos,
-  revisión estática hecha, y corrijo en vivo leyendo el log de compilación.
-- Edge Function no desplegada; Turnstile no configurado; pruebas 12–15 pendientes de URL real.
+## v2 · PROBADO DE VERDAD (26-oct)
 
-## DESPLEGADO
+- Node: **35/35 PASA**.
+- TypeScript real sobre el frontend: **0 errores** (1 corregido), también sobre la versión integrada.
+- Integración con producción: `Sesion.tsx` y `config.js` idénticos a GitHub; `RedirigirRecuperacion` idéntica.
+- Importaciones: 0 rotas.
+- Archivos de acceso: diff vacío.
+- Revisión independiente del SQL: 13 hallazgos, **todos corregidos** (2 graves de lógica, 1 de permisos).
 
-- **Nada.** Sin cuentas (confirmado por David), sin proyecto Supabase, sin URL. Cero datos reales.
+## v2 · NO PROBADO AÚN
 
-## PENDIENTE DE VALIDACIÓN DEL NEGOCIO (propuestas configurables, no aprobadas)
+- Las migraciones 0013-0016 y la suite `pruebas_aprobacion_v2.sql` no se han ejecutado en un
+  PostgreSQL vivo: este entorno no lo permite. Se ejecutan en el proyecto de PRUEBAS (guía, Parte 1).
+- Compilación con Vite y vista previa en Cloudflare.
+- Inicio de sesión y recuperación con las correcciones reales de David (vista previa, Parte 3).
+- Correos reales: requieren que TI configure Microsoft Graph.
 
-Responsables de aprobación/almacén · visibilidad por área · catálogos oficiales ·
-definición de "compra fuera del sistema" · reglas de cierre · umbrales de aprobación ·
-semana lun-dom · límites de adjuntos (5 MB×3) · prioridades.
+## v2 · DESPLEGADO
+
+- **Nada.** No se tocó producción ni la base productiva. Se requiere autorización explícita de David.
+
+## PENDIENTE DE DEFINICIÓN DEL NEGOCIO
+
+12 preguntas en `docs/v2/DIAGNOSTICO_Y_DECISIONES.md`, entre ellas:
+- Ruta superior de los jefes.
+- Jefes por área.
+- Cuentas con permiso de emergencia.
+- Permisos de las responsables de Compras.
+- Calendario y política después del corte.
+- Centros de costo de Producción y Mantenimiento.
+- Si el centro de costo va por solicitud o por artículo.
+- Visibilidad del líder de área.
+- Ventanas de papelería.
+- Correo.
+- Si un cambio material de Compras requiere reaprobación.
+
+## Un solo proyecto de Supabase (decisión de David, 26-oct)
+
+No hay proyecto de pruebas. Ruta: `docs/v2/GUIA_MISMO_PROYECTO.md`.
+- A: diagnóstico.
+- B: respaldo interno (`01_respaldo_interno.sql`).
+- C: 0013.
+- D: ensayo general revertido (`02_ensayo_sin_cambios.sql`, generado = setup v2 + suite + reversión intencional).
+- E: aplicación todo o nada (`03_aplicar_definitivo.sql`).
+- `04_limpieza…` solo si el ensayo se guardara por error.
+- La vista previa usa la base real solo por declaración explícita en `config.pruebas.js` (banda roja).
+
+## Avance en la base real (26-oct)
+
+- A (diagnóstico): LISTO PARA MIGRAR, 15/15 iguales.
+- C (0013): aplicado.
+- D (ensayo revertido sobre los datos reales): **PASA=62 · FALLA=0 · MANUAL=1**.
+- Pendiente de confirmar: B (respaldo) y diagnóstico después del ensayo.
 
 ## Punto de continuación
 
-→ **Siguiente acción de David**: crear las 3 cuentas gratuitas (Parte A de
-docs/GUIA_DESPLIEGUE.md: Supabase, Cloudflare, GitHub con correo corporativo).
-→ **Siguiente acción mía (jueves/viernes, con David presente)**: acompañar B→F de la guía
-(puedo ejecutar SQL y revisar logs por el navegador integrado), correr la suite de
-aceptación en el proyecto de pruebas, llenar el "Registro de ejecución" de la matriz,
-compilar en Cloudflare y cerrar la verificación 14–15 + respaldo/restauración demostrados.
+1. ✓ Integración sobre el repositorio real (26-oct).
+2. David ejecuta A–D de `GUIA_MISMO_PROYECTO.md` y comparte la captura del ensayo (PASA/FALLA);
+   se corrige lo que falle.
+3. Vista previa de la rama con `config.pruebas.js`; verificación manual (Parte 3).
+4. Respuestas a las decisiones pendientes y configuración real.
+5. Autorización explícita → producción (Parte 4).

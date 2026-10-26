@@ -14,6 +14,13 @@ Claude u otra IA para funcionar.
 > entorno de desarrollo lo permitió (ver `ESTADO.md`). **Nada está desplegado hasta seguir
 > `docs/GUIA_DESPLIEGUE.md`**, y la matriz de aceptación se ejecuta de verdad en ese momento.
 
+
+> **Versión 2 (rama `mejora/aprobacion-jefe-calendario`, 26-oct-2026):** aprobación obligatoria del
+> jefe de área antes de Compras, calendario de recepción, emergencias, centros de costo por
+> área, notificaciones e indicadores. Empieza por `docs/v2/GUIA_APLICAR_MEJORA_V2.md`; las
+> decisiones pendientes están en `docs/v2/DIAGNOSTICO_Y_DECISIONES.md` y los resultados en
+> `docs/v2/RESULTADOS_PRUEBAS.md`. La configuración se explica en `docs/v2/GUIA_CONFIGURACION.md`.
+
 ## Estructura
 
 ```
@@ -50,7 +57,7 @@ npm install        # descarga dependencias y genera package-lock.json
 npm run dev        # abre la app en modo desarrollo (http://localhost:5173)
 npm run build      # genera la carpeta dist/ lista para publicar
 npm run typecheck  # verificación de tipos TypeScript
-npm run test:logica# pruebas de lógica pura (semanas, importes, CSV, sanitización)
+npm run test:logica # pruebas de lógica pura (35: semanas, importes, CSV, calendario v2, formularios)
 ```
 
 > Nota de trazabilidad: las versiones de dependencias están **fijadas exactas** en

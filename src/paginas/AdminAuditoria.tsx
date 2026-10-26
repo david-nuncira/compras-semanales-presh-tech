@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { AdminNav } from '../componentes/AdminNav.tsx';
 import { supabase, limpiarError } from '../supabase.ts';
 import { useActualizacionPeriodica } from '../datos.ts';
 import { Campo, MensajeError, Cargando, Paginador } from '../componentes/UI.tsx';
@@ -54,11 +55,7 @@ export function AdminAuditoria() {
   return (
     <div className="contenido">
       <h1>Administración · Auditoría</h1>
-      <div className="acciones-fila">
-        <Link to="/admin">Usuarios</Link> · <Link to="/admin/catalogos">Catálogos</Link> ·
-        {' '}<Link to="/admin/auditoria">Auditoría</Link> · <Link to="/admin/recuperacion">Recuperación</Link> ·
-        {' '}<Link to="/admin/importacion">Importación CSV</Link>
-      </div>
+      <AdminNav />
       <p className="texto-suave">
         La auditoría la generan disparadores y funciones del servidor con el usuario autenticado
         y la hora del servidor. Ningún usuario funcional (incluido el administrador) puede
@@ -69,7 +66,7 @@ export function AdminAuditoria() {
         <Campo etiqueta="Tabla">
           <select value={fTabla} onChange={(e) => { setPagina(1); setFTabla(e.target.value); }}>
             <option value="">Todas</option>
-            {['perfiles','perfil_roles','areas','centros_costo','proveedores','solicitudes','articulos','cotizaciones','aprobaciones','compras','movimientos','novedades','adjuntos','compras_externas','configuracion','importacion_lotes','importacion_filas','recuperacion_acceso'].map((t) =>
+            {['perfiles','perfil_roles','areas','centros_costo','proveedores','solicitudes','articulos','cotizaciones','aprobaciones','compras','movimientos','novedades','adjuntos','compras_externas','configuracion','importacion_lotes','importacion_filas','recuperacion_acceso','solicitud_aprobaciones','solicitud_devoluciones','area_centros_costo','unidades_medida','categorias_solicitud','ventanas_recepcion','calendario_config','calendario_no_habiles'].map((t) =>
               <option key={t} value={t}>{t}</option>)}
           </select>
         </Campo>

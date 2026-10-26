@@ -1,8 +1,13 @@
 // Tipos espejo del esquema (solo lo que usa la interfaz).
 
-export type Rol = 'administrador' | 'solicitante' | 'compras' | 'aprobador' | 'almacen';
+export type Rol =
+  | 'administrador' | 'solicitante' | 'compras' | 'aprobador' | 'almacen'
+  | 'consulta_global' | 'admin_usuarios' | 'admin_catalogos' | 'emergencias';
 export type EstadoPerfil = 'pendiente' | 'activo' | 'desactivado' | 'rechazado';
-export type EstadoSolicitud = 'borrador' | 'enviada' | 'en_correccion' | 'cancelada';
+// 'enviada' = flujo anterior (llegó a Compras sin aprobación previa del jefe).
+export type EstadoSolicitud =
+  | 'borrador' | 'pendiente_aprobacion' | 'programada' | 'recibida_compras'
+  | 'enviada' | 'en_correccion' | 'rechazada' | 'cancelada';
 export type Etapa =
   | 'borrador' | 'solicitado' | 'en_cotizacion' | 'cotizado' | 'comprado'
   | 'en_transito' | 'recibido_parcial' | 'recibido_total' | 'cerrado' | 'cancelado';
@@ -19,9 +24,48 @@ export interface MiPerfil {
   estado: EstadoPerfil;
   area_id: string | null;
   roles: Rol[];
+  // v2 (opcionales: si el servidor aún no los envía, la app sigue funcionando)
+  area_nombre?: string | null;
+  es_jefe?: boolean;
+  notificaciones_sin_leer?: number;
 }
 
-export interface Area { id: string; nombre: string; activo: boolean; version: number; }
+export interface Area {
+  id: string; nombre: string; activo: boolean; version: number;
+  jefe_id?: string | null; aprobador_superior_id?: string | null; descripcion?: string | null;
+}
+export interface AreaCentro { area_id: string; centro_costo_id: string; activo: boolean; }
+export interface UnidadMedida { id: string; nombre: string; abreviatura: string | null; activo: boolean; version: number; }
+export interface CategoriaSolicitud { id: string; nombre: string; descripcion: string | null; activo: boolean; version: number; }
+export interface VentanaRecepcion {
+  id: string; categoria_id: string; nombre: string; abre_en: string; cierra_en: string;
+  fecha_recepcion: string; activo: boolean;
+}
+export interface CicloCalendario {
+  semana_lunes: string; fecha_recepcion: string; liberacion: string; cierre: string;
+  origen: 'extraordinaria' | 'sin_calendario' | 'ciclo_semanal' | 'ventana_categoria';
+  nota: string | null; no_habiles: Array<{ fecha: string; descripcion: string }>;
+}
+export interface AprobacionSolicitud {
+  aprobacion_id: string; solicitud_id: string; version: number; aprobador_id: string;
+  ruta: 'jefe_area' | 'ruta_superior';
+  estado: 'pendiente' | 'aprobada' | 'devuelta' | 'rechazada' | 'reemplazada' | 'anulada';
+  es_vigente: boolean; motivo: string | null; solicitada_en: string; decidido_en: string | null;
+  numero: string; solicitud_estado: EstadoSolicitud; solicitante_id: string; solicitante_nombre: string | null;
+  area_id: string; area_nombre: string | null; centro_costo_codigo: string | null; centro_costo_nombre: string | null;
+  justificacion: string | null; semana_lunes: string; es_extraordinaria: boolean; motivo_extraordinaria: string | null;
+  categoria_id: string | null; creado_en: string; ultimo_envio_en: string | null;
+}
+export interface Devolucion {
+  id: string; solicitud_id: string; iniciada_por: string; motivo: string; etapa: string;
+  estado: 'pendiente' | 'autorizada' | 'negada' | 'aplicada_directa';
+  resuelta_por: string | null; resuelta_en: string | null; respuesta: string | null; creado_en: string;
+}
+export interface Notificacion {
+  id: number; tipo: string; titulo: string; cuerpo: string | null; enlace: string | null;
+  solicitud_id: string | null; evento_en: string; creado_en: string; leida_en: string | null;
+}
+export interface EventoHistorial { evento_en: string; tipo: string; descripcion: string; actor: string; motivo: string | null; }
 export interface CentroCosto { id: string; codigo: string; nombre: string; activo: boolean; version: number; }
 export interface Proveedor {
   id: string; nombre: string; identificacion: string | null; contacto: string | null;
@@ -37,6 +81,18 @@ export interface VSolicitud {
   origen: string; creado_en: string; enviado_en: string | null; version: number;
   total_articulos: number; articulos_cerrados: number; articulos_cancelados: number;
   resumen_etapas: Record<string, number> | null;
+  // v2
+  flujo: 'anterior' | 'aprobacion_previa';
+  categoria_id: string | null; categoria_nombre: string | null;
+  es_extraordinaria: boolean; motivo_extraordinaria: string | null;
+  aprobador_jefe_id: string | null; aprobador_jefe_nombre: string | null;
+  ultimo_envio_en: string | null; aprobado_en: string | null;
+  fecha_programada_recepcion: string | null; liberacion_programada_en: string | null;
+  cierre_ciclo_en: string | null; origen_programacion: string | null;
+  recibida_compras_en: string | null; version_contenido: number;
+  en_bandeja_compras: boolean;
+  ultimo_motivo_jefe: string | null; ultimo_motivo_devolucion: string | null;
+  devolucion_pendiente: boolean; fecha_requerida_min: string | null;
 }
 
 export interface VArticulo {
@@ -60,6 +116,10 @@ export interface VArticulo {
   disponible_almacen: number | null; pendiente_llegada: number | null;
   primera_llegada: string | null; ultima_llegada: string | null;
   dias_atraso: number | null; novedades_abiertas: number; adjuntos: number;
+  // v2
+  enlace_referencia: string | null; proveedor_sugerido: string | null;
+  recibida_compras_en: string | null; fecha_programada_recepcion: string | null;
+  flujo: 'anterior' | 'aprobacion_previa'; es_extraordinaria: boolean; en_bandeja_compras: boolean;
 }
 
 export interface Cotizacion {
@@ -139,10 +199,10 @@ export const ETIQUETA_APROBACION: Record<EstadoAprobacion, string> = {
 };
 
 export const ETIQUETA_MOVIMIENTO: Record<TipoMovimiento, string> = {
-  recepcion: 'Recepción del proveedor',
+  recepcion: 'Ingreso al almacén (recibido del proveedor)',
   entrega: 'Entrega al solicitante',
-  devolucion_proveedor: 'Devolución al proveedor',
-  retorno_solicitante: 'Retorno del solicitante'
+  devolucion_proveedor: 'Devolución al proveedor (sale del almacén)',
+  retorno_solicitante: 'Retorno al almacén (lo devuelve el solicitante)'
 };
 
 export const ETIQUETA_NOVEDAD: Record<TipoNovedad, string> = {
@@ -154,15 +214,49 @@ export const ETIQUETA_NOVEDAD: Record<TipoNovedad, string> = {
 
 export const ETIQUETA_ESTADO_SOLICITUD: Record<EstadoSolicitud, string> = {
   borrador: 'Borrador',
-  enviada: 'Enviada',
-  en_correccion: 'En corrección',
+  pendiente_aprobacion: 'Pendiente de aprobación del jefe',
+  programada: 'Aprobada y programada para Compras',
+  recibida_compras: 'Recibida por Compras',
+  enviada: 'Recibida por Compras (flujo anterior, sin aprobación previa)',
+  en_correccion: 'Devuelta para corrección',
+  rechazada: 'Rechazada',
   cancelada: 'Cancelada'
 };
 
+// Orden del recorrido principal (para la línea de avance).
+export const RECORRIDO: Array<{ clave: string; titulo: string }> = [
+  { clave: 'borrador', titulo: 'Borrador' },
+  { clave: 'pendiente_aprobacion', titulo: 'Aprobación del jefe' },
+  { clave: 'programada', titulo: 'Programada' },
+  { clave: 'recibida_compras', titulo: 'Recibida por Compras' },
+  { clave: 'gestion', titulo: 'Cotización y compra' },
+  { clave: 'entrega', titulo: 'Recepción y entrega' },
+  { clave: 'cierre', titulo: 'Cierre' }
+];
+
 export const ETIQUETA_ROL: Record<Rol, string> = {
-  administrador: 'Administrador',
+  administrador: 'Administrador general',
   solicitante: 'Solicitante',
-  compras: 'Compras',
-  aprobador: 'Aprobador',
-  almacen: 'Almacén'
+  compras: 'Compras (gestionar compras)',
+  aprobador: 'Aprobador de cotización/gasto',
+  almacen: 'Almacén',
+  consulta_global: 'Consulta global (solo lectura)',
+  admin_usuarios: 'Administrar usuarios (sin permisos privilegiados)',
+  admin_catalogos: 'Administrar catálogos, estructura y calendario',
+  emergencias: 'Solicitudes extraordinarias'
 };
+
+export const DESCRIPCION_ROL: Record<Rol, string> = {
+  administrador: 'Todo, incluida la asignación de permisos privilegiados. No puede borrar el historial.',
+  solicitante: 'Crea solicitudes para su área, adjunta soportes, pide devoluciones y confirma entregas.',
+  compras: 'Gestiona solo las solicitudes aprobadas y liberadas: cotizaciones, compra, seguimiento y novedades.',
+  aprobador: 'Decide aprobaciones POSTERIORES de cotización o gasto que Compras le asigne (no es el jefe de área).',
+  almacen: 'Registra ingresos, entregas, devoluciones y retornos.',
+  consulta_global: 'Ve toda la operación enviada (incluye pendientes de aprobación, claramente marcadas) sin modificar nada.',
+  admin_usuarios: 'Activa cuentas y asigna permisos básicos. No toca cuentas ni permisos de administración, consulta global o emergencias.',
+  admin_catalogos: 'Áreas, jefes, solicitantes por área, centros de costo, unidades, categorías y calendario.',
+  emergencias: 'Puede marcar una solicitud como extraordinaria (salta el calendario, no la aprobación del jefe).'
+};
+
+// Permisos que solo asigna el administrador general.
+export const ROLES_PRIVILEGIADOS: Rol[] = ['administrador', 'admin_usuarios', 'admin_catalogos', 'consulta_global', 'emergencias'];

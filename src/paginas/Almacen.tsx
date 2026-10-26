@@ -14,7 +14,7 @@ import { fmtFecha } from '../util/fechas.ts';
 export function Almacen() {
   const [filas, setFilas] = useState<VArticulo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [vista, setVista] = useState<'por_llegar' | 'disponibles' | 'entregados'>('por_llegar');
+  const [vista, setVista] = useState<'por_llegar' | 'disponibles' | 'pendientes_entrega' | 'entregados'>('por_llegar');
   const [texto, setTexto] = useState('');
 
   const cargar = useCallback(async () => {
@@ -23,11 +23,17 @@ export function Almacen() {
       .in('etapa', ['comprado', 'en_transito', 'recibido_parcial', 'recibido_total', 'cerrado']);
     if (vista === 'por_llegar') q = q.gt('pendiente_llegada', 0).neq('etapa', 'cerrado');
     if (vista === 'disponibles') q = q.gt('disponible_almacen', 0);
+    if (vista === 'pendientes_entrega') q = q.gt('disponible_almacen', 0).neq('etapa', 'cerrado');
     if (vista === 'entregados') q = q.gt('entregado_neto', 0);
     if (texto.trim()) q = q.ilike('nombre', `%${texto.trim()}%`);
     const { data, error: e } = await q.order('actualizado_en', { ascending: false }).limit(500);
     if (e) { setError(limpiarError(e.message)); return; }
-    setFilas((data ?? []) as VArticulo[]);
+    let lista = (data ?? []) as VArticulo[];
+    // Pendiente de entrega: hay saldo en almacén y aún no se entregó lo comprado.
+    if (vista === 'pendientes_entrega') {
+      lista = lista.filter((x) => (x.entregado_neto ?? 0) < (x.cantidad_comprada ?? x.cantidad));
+    }
+    setFilas(lista);
   }, [vista, texto]);
 
   useActualizacionPeriodica(cargar, 60000, [cargar]);
@@ -39,7 +45,8 @@ export function Almacen() {
       <div className="filtros">
         <div className="acciones-fila" role="tablist">
           <button type="button" className={vista === 'por_llegar' ? 'boton-primario' : 'boton-secundario'} onClick={() => setVista('por_llegar')}>Por llegar</button>
-          <button type="button" className={vista === 'disponibles' ? 'boton-primario' : 'boton-secundario'} onClick={() => setVista('disponibles')}>Disponibles</button>
+          <button type="button" className={vista === 'disponibles' ? 'boton-primario' : 'boton-secundario'} onClick={() => setVista('disponibles')}>Disponibles en almacén</button>
+          <button type="button" className={vista === 'pendientes_entrega' ? 'boton-primario' : 'boton-secundario'} onClick={() => setVista('pendientes_entrega')}>Pendientes de entrega</button>
           <button type="button" className={vista === 'entregados' ? 'boton-primario' : 'boton-secundario'} onClick={() => setVista('entregados')}>Con entregas</button>
         </div>
         <Campo etiqueta="Buscar artículo">

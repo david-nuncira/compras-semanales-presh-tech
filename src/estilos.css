@@ -190,3 +190,94 @@ button { font: inherit; cursor: pointer; border-radius: 7px; }
 @media print {
   .cabecera, .filtros, button { display: none !important; }
 }
+
+/* ===================== Mejora v2 ===================== */
+
+/* Avisos flotantes: visibles sin desplazarse al inicio de la página. */
+.mensaje-flotante {
+  position: fixed; right: 1rem; bottom: 1rem; z-index: 80;
+  max-width: min(460px, calc(100vw - 2rem));
+  box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+  display: flex; gap: 0.5rem; align-items: flex-start; justify-content: space-between;
+}
+.resultado-accion { margin-top: 0.4rem; }
+
+/* Obligatorio / opcional / ayuda / error junto al campo */
+.marca-obligatorio { color: var(--peligro); font-weight: 600; font-size: 0.78rem; }
+.marca-opcional { color: var(--tinta-suave); font-weight: 400; font-size: 0.8rem; }
+.campo-ayuda { color: var(--tinta-suave); font-size: 0.82rem; }
+.campo-con-error input, .campo-con-error select, .campo-con-error textarea { border-color: var(--peligro); border-width: 2px; }
+.leyenda-campos { font-size: 0.82rem; color: var(--tinta-suave); margin: 0 0 0.4rem; }
+input[readonly], select:disabled { background: #f1f3f5; color: var(--tinta); }
+
+/* Estados de la solicitud (texto + color) */
+.sol-borrador { background: #f0f0f0; border-color: #999; color: #444; }
+.sol-pendiente_aprobacion { background: var(--aviso-claro); border-color: var(--aviso); color: var(--aviso); }
+.sol-programada { background: #eae6fb; border-color: #5b48a2; color: #4a3b85; }
+.sol-recibida_compras, .sol-enviada { background: var(--info-claro); border-color: var(--info); color: var(--info); }
+.sol-en_correccion { background: #fff1e6; border-color: #b4541a; color: #8f4012; }
+.sol-rechazada, .sol-cancelada { background: var(--peligro-claro); border-color: var(--peligro); color: var(--peligro); }
+.insignia-extra { background: #fde8e8; border-color: #b91c1c; color: #991b1b; }
+
+/* Línea de avance */
+.recorrido { list-style: none; display: flex; flex-wrap: wrap; gap: 0.3rem; padding: 0; margin: 0.5rem 0; }
+.recorrido li { padding: 0.25rem 0.6rem; border: 1px solid var(--borde); border-radius: 999px; font-size: 0.8rem; color: var(--tinta-suave); background: #fff; }
+.recorrido li.recorrido-hecho { background: var(--primario-claro); border-color: var(--primario); color: var(--primario); }
+.recorrido li.recorrido-actual { background: var(--primario); border-color: var(--primario); color: #fff; font-weight: 700; }
+.recorrido li.recorrido-inactivo { opacity: 0.5; }
+.recorrido li.recorrido-alerta { background: #fff1e6; border-color: #b4541a; color: #8f4012; font-weight: 700; }
+
+/* Bloque de fechas */
+.fechas { display: grid; gap: 0.35rem 1rem; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin: 0.5rem 0; }
+.fechas div { font-size: 0.88rem; }
+.fechas b { display: block; font-size: 0.78rem; color: var(--tinta-suave); font-weight: 600; }
+
+/* Calendario visual de semanas */
+.calendario-semanas { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); }
+.semana-opcion {
+  text-align: left; background: #fff; border: 1px solid var(--borde); border-radius: 10px;
+  padding: 0.55rem; cursor: pointer; font: inherit; color: inherit;
+}
+.semana-opcion:hover { border-color: var(--primario); }
+.semana-opcion.seleccionada { border: 2px solid var(--primario); background: var(--primario-claro); }
+.semana-opcion .semana-titulo { font-weight: 700; display: block; }
+.semana-opcion .semana-detalle { font-size: 0.8rem; color: var(--tinta-suave); display: block; }
+.semana-opcion .semana-festivo { font-size: 0.78rem; color: var(--aviso); display: block; }
+
+/* Adjuntos: arrastrar y soltar, progreso, vista previa */
+.zona-carga {
+  border: 2px dashed var(--borde); border-radius: 10px; padding: 0.9rem; text-align: center;
+  background: #fafbfc; color: var(--tinta-suave); cursor: pointer;
+}
+.zona-carga.activa { border-color: var(--primario); background: var(--primario-claro); color: var(--primario); }
+.progreso { width: 100%; height: 8px; background: #e6e9ee; border-radius: 999px; overflow: hidden; margin-top: 0.3rem; }
+.progreso > span { display: block; height: 100%; background: var(--primario); }
+.galeria-adjuntos { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); margin: 0.4rem 0; }
+.ficha-adjunto { border: 1px solid var(--borde); border-radius: 8px; padding: 0.4rem; background: #fff; font-size: 0.82rem; }
+.ficha-adjunto .miniatura {
+  width: 100%; height: 100px; display: flex; align-items: center; justify-content: center;
+  background: #f1f3f5; border-radius: 6px; overflow: hidden; font-size: 2rem; margin-bottom: 0.3rem;
+}
+.ficha-adjunto img { width: 100%; height: 100%; object-fit: cover; }
+.visor-imagen { max-width: 100%; max-height: 70vh; display: block; margin: 0 auto; }
+
+/* Notificaciones */
+.campana { position: relative; color: #fff; text-decoration: none; padding: 0.3rem 0.5rem; }
+.campana .contador {
+  position: absolute; top: -4px; right: -6px; background: #dc2626; color: #fff; border-radius: 999px;
+  font-size: 0.7rem; padding: 0 0.35rem; font-weight: 700;
+}
+.notificacion { border-bottom: 1px solid var(--borde); padding: 0.55rem 0; }
+.notificacion.no-leida { border-left: 4px solid var(--primario); padding-left: 0.6rem; }
+
+/* Historial */
+.historial { list-style: none; padding: 0; margin: 0; border-left: 3px solid var(--borde); }
+.historial li { padding: 0.35rem 0 0.35rem 0.8rem; position: relative; }
+.historial li::before { content: ''; position: absolute; left: -7px; top: 0.7rem; width: 10px; height: 10px; border-radius: 50%; background: var(--primario); }
+
+/* Pestañas sencillas */
+.pestanas { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.5rem 0; }
+
+/* Aviso de entorno de pruebas */
+.banda-pruebas { background: #fde68a; color: #78350f; text-align: center; padding: 0.3rem; font-weight: 700; font-size: 0.85rem; }
+.banda-real { background: #b91c1c; color: #fff; }

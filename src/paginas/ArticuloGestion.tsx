@@ -173,13 +173,22 @@ export function ArticuloGestion() {
         solicitado {fmtCantidad(a.cantidad)} {a.unidad} · prioridad {a.prioridad}
         {a.fecha_requerida ? ` · requerido ${fmtFecha(a.fecha_requerida)}` : ''}
       </p>
-      <p>{a.descripcion}</p>
+      {!a.en_bandeja_compras ? (
+        <p className="mensaje mensaje-error">
+          Esta solicitud no está en la bandeja operativa de Compras (estado: {a.solicitud_estado}). Solo consulta.
+        </p>
+      ) : null}
+      {a.es_extraordinaria ? <p><span className="insignia insignia-extra">Extraordinaria</span></p> : null}
+      <p><b>Especificaciones:</b> {a.descripcion}</p>
+      {a.enlace_referencia ? <p>Enlace de compra/referencia: <a href={a.enlace_referencia} target="_blank" rel="noopener noreferrer">{a.enlace_referencia}</a></p> : null}
+      {a.proveedor_sugerido ? <p className="texto-suave">Proveedor sugerido por el solicitante: {a.proveedor_sugerido}</p> : null}
+      {a.recibida_compras_en ? <p className="texto-suave">Recibida por Compras: {fmtFechaHora(a.recibida_compras_en)}</p> : null}
       {a.justificacion ? <p className="texto-suave">Justificación: {a.justificacion}</p> : null}
       {a.estatus_historico ? <p className="texto-suave">Estado histórico declarado (CSV): “{a.estatus_historico}”</p> : null}
       {a.cerrado_en ? <p className="texto-suave">Cerrado {fmtFechaHora(a.cerrado_en)}{a.cerrado_motivo ? ` · motivo: ${a.cerrado_motivo}` : ''}</p> : null}
 
-      <MensajeError texto={error} />
-      <MensajeExito texto={exito} />
+      <MensajeError texto={error} flotante alCerrar={() => setError(null)} />
+      <MensajeExito texto={exito} flotante alCerrar={() => setExito(null)} />
 
       {/* ------- Acciones de etapa ------- */}
       {esGestor ? (
@@ -223,9 +232,9 @@ export function ArticuloGestion() {
             <BotonConMotivo etiqueta="Reabrir artículo" titulo="Reabrir artículo cerrado"
               onConfirmar={async (m) => { await rpc('fn_reabrir_articulo', { p_articulo: a.id, p_motivo: m, p_version: a.version }); await cargar(); }} />
           ) : null}
-          {a.solicitud_estado === 'enviada' && ['solicitado', 'en_cotizacion', 'cotizado'].includes(a.etapa) ? (
+          {a.en_bandeja_compras && ['solicitado', 'en_cotizacion', 'cotizado'].includes(a.etapa) ? (
             <BotonConMotivo etiqueta="Devolver solicitud a corrección" titulo="Devolver la solicitud completa a corrección"
-              descripcion="El solicitante podrá editar y reenviar. Solo si ningún artículo está comprado o recibido."
+              descripcion="El solicitante podrá editar y reenviar; volverá a pasar por la aprobación de su jefe. Solo si ningún artículo está comprado o recibido."
               onConfirmar={async (m) => { await rpc('fn_devolver_a_correccion', { p_solicitud: a.solicitud_id, p_motivo: m }); await cargar(); }} />
           ) : null}
           <button type="button" className="boton-secundario" onClick={() => void cargar()}>Actualizar</button>
@@ -483,7 +492,7 @@ export function ArticuloGestion() {
 
       {/* ------- Adjuntos del artículo ------- */}
       <div className="tarjeta">
-        <Adjuntos entidad="articulo" entidadId={a.id} puedeSubir={esGestor && !['cerrado', 'cancelado'].includes(a.etapa)} />
+        <Adjuntos entidad="articulo" entidadId={a.id} puedeSubir={esGestor && a.en_bandeja_compras && !['cerrado', 'cancelado'].includes(a.etapa)} />
       </div>
 
       {/* ------- Historial ------- */}

@@ -94,3 +94,42 @@ entregar más de lo disponible o recibir más de lo comprado.
   convierte en solicitud nueva.
 - No puedes editar ni borrar la auditoría, ni quedarte sin administradores activos.
   Detalles y procedimientos: `PRIMER_ADMINISTRADOR.md`.
+
+---
+
+## Cambios de la versión 2 (aprobación del jefe y calendario)
+
+**Solicitante**
+- El botón ahora dice **“Enviar a aprobación”**: tu solicitud va primero a tu jefe de área, no
+  directo a Compras. Antes de enviar ves quién la aprobará y para qué fecha la recibiría Compras.
+- Guardar un borrador no envía nada. Puedes enviar cualquier día; Compras la recibe en su fecha
+  de recepción (calendario visual de semanas).
+- Si tu jefe o Compras la **devuelven**, ves el motivo en la solicitud y en la pestaña
+  “Devueltas”; corriges y la reenvías (queda la versión anterior en el historial).
+- Después de enviar ya no puedes cambiarla ni cancelarla directamente: usa **“Pedir devolución
+  para corregir”**. Si ya hay artículos comprados, usa **“Reportar novedad”**.
+- El área es la tuya; el centro de costo se elige solo entre los autorizados para tu área
+  (si es uno solo, queda fijo). La unidad se elige de la lista; el enlace de compra va en su
+  propio campo y no reemplaza las especificaciones; el proveedor sugerido es opcional.
+- Adjuntos: arrastra las fotos o PDF; ves el progreso y una miniatura.
+
+**Jefe de área (o ruta superior)**
+- Menú **“Por aprobar (jefe)”**: ves la solicitud completa con sus adjuntos y decides
+  **Aprobar**, **Devolver para corrección** (motivo obligatorio) o **Rechazar** (motivo obligatorio).
+- También resuelves las peticiones de devolución de solicitudes que aprobaste y que aún no llegan a Compras.
+- No puedes decidir tus propias solicitudes: van a la ruta superior de tu área.
+
+**Compras**
+- La bandeja **solo** muestra solicitudes aprobadas y liberadas según el calendario (las
+  extraordinarias primero). Lo pendiente de aprobación no te llega.
+- Recibes un resumen agrupado por cada lote liberado (campana y, si TI lo habilita, correo).
+- Si devuelves una solicitud, al reenviarse pasa otra vez por el jefe.
+
+**Almacén**: pestañas *Por llegar*, *Disponibles en almacén*, *Pendientes de entrega* y *Con
+entregas*; los movimientos tienen nombres más claros (ingreso al almacén, entrega al
+solicitante, devolución al proveedor, retorno al almacén).
+
+**Consulta global**: menú “Consulta global” con todo lo enviado; cada solicitud indica si ya
+es de Compras o no. No permite modificar nada.
+
+**Administración**: ver `docs/v2/GUIA_CONFIGURACION.md` (estructura, calendario, emergencias, catálogos y permisos separados).

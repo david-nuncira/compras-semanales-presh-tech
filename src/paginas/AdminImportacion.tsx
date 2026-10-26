@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { AdminNav } from '../componentes/AdminNav.tsx';
 import { supabase, rpc, limpiarError, nuevoOp } from '../supabase.ts';
 import { useCatalogos } from '../datos.ts';
 import { Campo, MensajeError, MensajeExito, Cargando, Modal } from '../componentes/UI.tsx';
@@ -171,11 +172,7 @@ export function AdminImportacion() {
   return (
     <div className="contenido">
       <h1>Administración · Importación del CSV histórico</h1>
-      <div className="acciones-fila">
-        <Link to="/admin">Usuarios</Link> · <Link to="/admin/catalogos">Catálogos</Link> ·
-        {' '}<Link to="/admin/auditoria">Auditoría</Link> · <Link to="/admin/recuperacion">Recuperación</Link> ·
-        {' '}<Link to="/admin/importacion">Importación CSV</Link>
-      </div>
+      <AdminNav />
       <p className="texto-suave">
         Flujo: analizar el archivo → cargar a la zona de revisión → aprobar filas válidas
         (asignando área y centro de costo) → confirmar. Las filas importadas quedan como

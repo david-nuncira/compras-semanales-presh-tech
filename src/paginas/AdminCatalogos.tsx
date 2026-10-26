@@ -2,8 +2,17 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, limpiarError } from '../supabase.ts';
 import { useCatalogos } from '../datos.ts';
-import { useSesion } from '../contexto/Sesion.tsx';
+import { usePermisos } from '../permisos.ts';
 import { Campo, MensajeError, MensajeExito, Cargando } from '../componentes/UI.tsx';
+import { AdminNav } from '../componentes/AdminNav.tsx';
+
+/** Pide un texto nuevo con un cuadro simple (renombrar sin perder historia). */
+function pedirTexto(pregunta: string, actual: string): string | null {
+  const v = window.prompt(pregunta, actual);
+  if (v === null) return null;
+  const t = v.trim();
+  return t.length >= 2 && t !== actual ? t : null;
+}
 
 /**
  * Catálogos administrables: áreas, centros de costo y proveedores.
@@ -11,7 +20,8 @@ import { Campo, MensajeError, MensajeExito, Cargando } from '../componentes/UI.t
  */
 export function AdminCatalogos() {
   const { cat, error: errorCat, recargar } = useCatalogos(true);
-  const { tiene } = useSesion();
+  const permisos = usePermisos();
+  const [nUnidad, setNUnidad] = useState({ nombre: '', abreviatura: '' });
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
   const [nArea, setNArea] = useState('');
@@ -27,23 +37,49 @@ export function AdminCatalogos() {
     await recargar();
   }
 
-  if (!cat) return <div className="contenido"><Cargando /></div>;
+  if (!cat) return <div className="contenido"><AdminNav /><Cargando /></div>;
 
   return (
     <div className="contenido">
       <h1>Administración · Catálogos</h1>
-      <div className="acciones-fila">
-        <Link to="/admin">Usuarios</Link> · <Link to="/admin/catalogos">Catálogos</Link> ·
-        {' '}<Link to="/admin/auditoria">Auditoría</Link> · <Link to="/admin/recuperacion">Recuperación</Link> ·
-        {' '}<Link to="/admin/importacion">Importación CSV</Link>
-      </div>
+      <AdminNav />
       <p className="texto-suave">
         Los catálogos oficiales los define Compras/la empresa; los de demostración son
-        claramente ficticios. Desactivar no borra la historia: los registros antiguos
-        conservan su área/centro/proveedor original.
+        claramente ficticios. Desactivar no borra la historia: un catálogo inactivo no aparece en
+        solicitudes nuevas, pero los registros antiguos lo conservan. Los jefes y los centros de
+        costo permitidos por área se configuran en <Link to="/admin/estructura">Estructura</Link>.
       </p>
-      <MensajeError texto={errorCat ?? error} />
-      <MensajeExito texto={exito} />
+      <MensajeError texto={errorCat ?? error} flotante alCerrar={() => setError(null)} />
+      <MensajeExito texto={exito} flotante alCerrar={() => setExito(null)} />
+
+      <div className="tarjeta">
+        <h2>Unidades de medida</h2>
+        <form className="filtros" onSubmit={(e) => { e.preventDefault();
+          if (nUnidad.nombre.trim().length < 1) { setError('Escribe el nombre de la unidad.'); return; }
+          void ejecutar(() => supabase.from('unidades_medida').insert({ nombre: nUnidad.nombre.trim(), abreviatura: nUnidad.abreviatura.trim() || null }), 'Unidad creada.')
+            .then(() => setNUnidad({ nombre: '', abreviatura: '' }));
+        }}>
+          <Campo etiqueta="Nombre" requerido><input value={nUnidad.nombre} onChange={(e) => setNUnidad({ ...nUnidad, nombre: e.target.value })} /></Campo>
+          <Campo etiqueta="Abreviatura" opcional><input value={nUnidad.abreviatura} onChange={(e) => setNUnidad({ ...nUnidad, abreviatura: e.target.value })} /></Campo>
+          <button type="submit" className="boton-primario">Agregar</button>
+        </form>
+        <ul>
+          {cat.unidades.map((u) => (
+            <li key={u.id}>
+              {u.nombre}{u.abreviatura ? ` (${u.abreviatura})` : ''}{u.activo ? '' : ' (inactiva)'}
+              {' '}<button type="button" className="boton-silencioso" onClick={() => {
+                const t = pedirTexto('Nuevo nombre de la unidad', u.nombre);
+                if (t) void ejecutar(() => supabase.from('unidades_medida').update({ nombre: t }).eq('id', u.id).eq('version', u.version), 'Unidad renombrada.');
+              }}>Renombrar</button>
+              <button type="button" className="boton-silencioso" onClick={() =>
+                void ejecutar(() => supabase.from('unidades_medida').update({ activo: !u.activo }).eq('id', u.id).eq('version', u.version),
+                  u.activo ? 'Unidad desactivada.' : 'Unidad reactivada.')}>
+                {u.activo ? 'Desactivar' : 'Reactivar'}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <div className="tarjeta">
         <h2>Áreas</h2>
@@ -58,6 +94,10 @@ export function AdminCatalogos() {
           {cat.areas.map((a) => (
             <li key={a.id}>
               {a.nombre} {a.activo ? '' : ' (inactiva)'}
+              {' '}<button type="button" className="boton-silencioso" onClick={() => {
+                const t = pedirTexto('Nuevo nombre del área', a.nombre);
+                if (t) void ejecutar(() => supabase.from('areas').update({ nombre: t }).eq('id', a.id).eq('version', a.version), 'Área renombrada.');
+              }}>Renombrar</button>
               {' '}<button type="button" className="boton-silencioso" onClick={() =>
                 void ejecutar(() => supabase.from('areas').update({ activo: !a.activo }).eq('id', a.id).eq('version', a.version),
                   a.activo ? 'Área desactivada.' : 'Área reactivada.')}>
@@ -83,6 +123,10 @@ export function AdminCatalogos() {
           {cat.centros.map((c) => (
             <li key={c.id}>
               <b>{c.codigo}</b> · {c.nombre} {c.activo ? '' : ' (inactivo)'}
+              {' '}<button type="button" className="boton-silencioso" onClick={() => {
+                const t = pedirTexto(`Nuevo nombre para ${c.codigo}`, c.nombre);
+                if (t) void ejecutar(() => supabase.from('centros_costo').update({ nombre: t }).eq('id', c.id).eq('version', c.version), 'Centro de costo renombrado.');
+              }}>Renombrar</button>
               {' '}<button type="button" className="boton-silencioso" onClick={() =>
                 void ejecutar(() => supabase.from('centros_costo').update({ activo: !c.activo }).eq('id', c.id).eq('version', c.version),
                   c.activo ? 'Centro desactivado.' : 'Centro reactivado.')}>
@@ -119,7 +163,7 @@ export function AdminCatalogos() {
           {cat.proveedores.map((p) => (
             <li key={p.id}>
               {p.nombre}{p.identificacion ? ` · ${p.identificacion}` : ''}{p.activo ? '' : ' (inactivo)'}
-              {' '}{tiene('administrador') ? (
+              {' '}{permisos.adminCatalogos ? (
                 <button type="button" className="boton-silencioso" onClick={() =>
                   void ejecutar(() => supabase.from('proveedores').update({ activo: !p.activo }).eq('id', p.id).eq('version', p.version),
                     p.activo ? 'Proveedor desactivado.' : 'Proveedor reactivado.')}>

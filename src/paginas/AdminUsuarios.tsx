@@ -1,17 +1,22 @@
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { usePermisos } from '../permisos.ts';
+import { AdminNav } from '../componentes/AdminNav.tsx';
 import { supabase, rpc, limpiarError } from '../supabase.ts';
 import { useSesion } from '../contexto/Sesion.tsx';
 import { useCatalogos, useActualizacionPeriodica } from '../datos.ts';
 import type { VUsuarioAdmin, Rol } from '../tipos.ts';
-import { ETIQUETA_ROL } from '../tipos.ts';
+import { ETIQUETA_ROL, DESCRIPCION_ROL, ROLES_PRIVILEGIADOS } from '../tipos.ts';
 import { Campo, MensajeError, MensajeExito, Cargando, Modal, BotonConMotivo } from '../componentes/UI.tsx';
 import { fmtFechaHora } from '../util/fechas.ts';
 
-const ROLES: Rol[] = ['solicitante', 'compras', 'aprobador', 'almacen', 'administrador'];
+const ROLES: Rol[] = ['solicitante', 'compras', 'aprobador', 'almacen', 'consulta_global', 'emergencias', 'admin_usuarios', 'admin_catalogos', 'administrador'];
 
 export function AdminUsuarios() {
   const { perfil } = useSesion();
+  const permisos = usePermisos();
+  const esPrivilegiado = (u: VUsuarioAdmin) => u.roles.some((r) => ROLES_PRIVILEGIADOS.includes(r));
+  const puedeGestionar = (u: VUsuarioAdmin) => permisos.adminGeneral || !esPrivilegiado(u);
   const { cat } = useCatalogos();
   const [usuarios, setUsuarios] = useState<VUsuarioAdmin[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,12 +65,7 @@ export function AdminUsuarios() {
   return (
     <div className="contenido">
       <h1>Administración</h1>
-      <div className="acciones-fila">
-        <Link to="/admin">Usuarios</Link> · <Link to="/admin/catalogos">Catálogos</Link> ·
-        {' '}<Link to="/admin/auditoria">Auditoría</Link> · <Link to="/admin/recuperacion">Recuperación de acceso</Link> ·
-        {' '}<Link to="/admin/importacion">Importación CSV</Link>
-      </div>
-      <hr className="separador" />
+      <AdminNav />
       <h2>Usuarios</h2>
       <p className="texto-suave">
         Nadie elige su propio privilegio: tú verificas la identidad por un canal corporativo
@@ -80,8 +80,12 @@ export function AdminUsuarios() {
         </div>
         <button type="button" className="boton-secundario" onClick={() => void cargar()}>Actualizar</button>
       </div>
-      <MensajeError texto={error} />
-      <MensajeExito texto={exito} />
+      {!permisos.adminGeneral ? (
+        <p className="mensaje mensaje-exito">Tienes permiso para administrar usuarios con permisos básicos. Las cuentas y los permisos de administración, consulta global y emergencias solo los gestiona el administrador general.</p>
+      ) : null}
+      <p className="texto-suave">Para vincular personas a su área y a su jefe usa <Link to="/admin/estructura">Estructura</Link>.</p>
+      <MensajeError texto={error} flotante alCerrar={() => setError(null)} />
+      <MensajeExito texto={exito} flotante alCerrar={() => setExito(null)} />
       {!usuarios ? <Cargando /> : usuarios.length === 0 ? (
         <div className="tarjeta"><p>No hay usuarios en este filtro.</p></div>
       ) : (
@@ -102,20 +106,21 @@ export function AdminUsuarios() {
                   <td className="oculto-movil">{fmtFechaHora(u.creado_en)}</td>
                   <td>
                     <div className="acciones-fila">
-                      {u.estado === 'pendiente' ? (
+                      {!puedeGestionar(u) ? <span className="texto-suave">Solo el administrador general</span> : null}
+                      {puedeGestionar(u) && u.estado === 'pendiente' ? (
                         <button type="button" className="boton-primario"
                           onClick={() => { setMError(null); setM({ u, roles: ['solicitante'], area: u.area_id ?? '', modo: 'activar' }); }}>
                           Activar…
                         </button>
                       ) : null}
-                      {u.estado === 'pendiente' ? (
+                      {puedeGestionar(u) && u.estado === 'pendiente' ? (
                         <BotonConMotivo etiqueta="Rechazar" clase="boton-peligro" titulo={`Rechazar a ${u.nombre}`}
                           onConfirmar={async (mo) => {
                             await rpc('fn_admin_cambiar_estado_usuario', { p_usuario: u.id, p_estado: 'rechazado', p_motivo: mo, p_version: u.version });
                             await cargar();
                           }} />
                       ) : null}
-                      {u.estado === 'activo' ? (
+                      {puedeGestionar(u) && u.estado === 'activo' ? (
                         <>
                           <button type="button" className="boton-secundario"
                             onClick={() => { setMError(null); setM({ u, roles: [...u.roles], area: u.area_id ?? '', modo: 'roles' }); }}>
@@ -129,7 +134,7 @@ export function AdminUsuarios() {
                             }} />
                         </>
                       ) : null}
-                      {(u.estado === 'desactivado' || u.estado === 'rechazado') ? (
+                      {puedeGestionar(u) && (u.estado === 'desactivado' || u.estado === 'rechazado') ? (
                         <BotonConMotivo etiqueta="Reactivar" titulo={`Reactivar a ${u.nombre}`}
                           onConfirmar={async (mo) => {
                             await rpc('fn_admin_cambiar_estado_usuario', { p_usuario: u.id, p_estado: 'activo', p_motivo: mo, p_version: u.version });
@@ -159,13 +164,15 @@ export function AdminUsuarios() {
             ) : null}
             <fieldset className="campo">
               <legend className="campo-etiqueta">Permisos (pueden coexistir)</legend>
-              {ROLES.map((r) => (
-                <label key={r}>
+              {ROLES.filter((r) => permisos.adminGeneral || !ROLES_PRIVILEGIADOS.includes(r)).map((r) => (
+                <label key={r} style={{ display: 'block', marginBottom: '0.35rem' }}>
                   <input type="checkbox" checked={m.roles.includes(r)}
                     onChange={(e) => setM({ ...m, roles: e.target.checked ? [...m.roles, r] : m.roles.filter((x) => x !== r) })} />
-                  {' '}{ETIQUETA_ROL[r]}
+                  {' '}<b>{ETIQUETA_ROL[r]}</b>{ROLES_PRIVILEGIADOS.includes(r) ? ' · solo administrador general' : ''}
+                  <span className="campo-ayuda" style={{ display: 'block', marginLeft: '1.4rem' }}>{DESCRIPCION_ROL[r]}</span>
                 </label>
               ))}
+              <span className="campo-ayuda">Ser jefe de área no es un permiso: se asigna en Estructura. Consultar toda la operación no da permiso para cambiar roles.</span>
             </fieldset>
             <Campo etiqueta="Área del usuario">
               <select value={m.area} onChange={(e) => setM({ ...m, area: e.target.value })}>
