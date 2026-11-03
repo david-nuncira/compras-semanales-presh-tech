@@ -1,3 +1,4 @@
+import { Formulario } from '../componentes/UI.tsx';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePermisos } from '../permisos.ts';
@@ -158,7 +159,7 @@ export function AdminUsuarios() {
 
       <Modal titulo={m?.modo === 'activar' ? `Activar a ${m?.u.nombre}` : `Permisos de ${m?.u.nombre}`} abierto={!!m} alCerrar={() => setM(null)}>
         {m ? (
-          <form className="formulario" onSubmit={guardarModal}>
+          <Formulario className="formulario" onSubmit={guardarModal}>
             {m.modo === 'activar' ? (
               <p>¿Verificaste la identidad de <b>{m.u.nombre}</b> ({m.u.correo}) por un canal corporativo?</p>
             ) : null}
@@ -187,7 +188,7 @@ export function AdminUsuarios() {
                 {ocupado ? 'Guardando…' : m.modo === 'activar' ? 'Activar cuenta' : 'Guardar permisos'}
               </button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
     </div>

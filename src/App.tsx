@@ -5,6 +5,8 @@ import { ProveedorSesion, useSesion } from './contexto/Sesion.tsx';
 import { supabase } from './supabase.ts';
 import { usePermisos, type Permisos } from './permisos.ts';
 import { ENTORNO } from './config.ts';
+import { CampanaAvisos } from './componentes/CampanaAvisos.tsx';
+import { AdminOrganigrama } from './paginas/AdminOrganigrama.tsx';
 import { Cargando } from './componentes/UI.tsx';
 
 import { Acceso } from './paginas/Acceso.tsx';
@@ -72,35 +74,35 @@ function Protegida({ children, permite }: { children: ReactNode; permite?: (p: P
 function Cabecera() {
   const { perfil, salir, sesion } = useSesion();
   const p = usePermisos();
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const [saliendo, setSaliendo] = useState(false);
   if (!sesion || !perfil || perfil.estado !== 'activo') return null;
   const clase = ({ isActive }: { isActive: boolean }) => (isActive ? 'activo' : '');
-  const sinLeer = perfil.notificaciones_sin_leer ?? 0;
   return (
     <>
-      {ENTORNO === 'pruebas' ? <div className="banda-pruebas">ENTORNO DE PRUEBAS · datos ficticios · no es producción</div> : null}
-      {ENTORNO === 'vista_previa_real' ? <div className="banda-pruebas banda-real">VISTA PREVIA de la nueva versión conectada a la base REAL · lo que hagas aquí queda guardado</div> : null}
-      <header className="cabecera">
-        <span className="marca">🛒 Compras Semanales</span>
-        <nav aria-label="Secciones">
-          <NavLink to="/" className={clase} end>Inicio</NavLink>
-          {p.solicitante ? <NavLink to="/mis-solicitudes" className={clase}>Mis solicitudes</NavLink> : null}
-          {p.jefe ? <NavLink to="/aprobacion-solicitudes" className={clase}>Por aprobar (jefe)</NavLink> : null}
-          {p.gestor ? <NavLink to="/gestion" className={clase}>Gestión de compras</NavLink> : null}
-          {p.aprobadorCotizacion ? <NavLink to="/aprobaciones" className={clase}>Aprobación de cotizaciones</NavLink> : null}
-          {(p.almacen || p.gestor) ? <NavLink to="/almacen" className={clase}>Almacén</NavLink> : null}
-          {p.consultaGlobal ? <NavLink to="/consulta" className={clase}>Consulta global</NavLink> : null}
-          {p.gestor ? <NavLink to="/compras-externas" className={clase}>Compras externas</NavLink> : null}
-          {(p.gestor || p.consultaGlobal) ? <NavLink to="/reportes" className={clase}>Reportes</NavLink> : null}
-          {(p.adminUsuarios || p.adminCatalogos || p.adminGeneral)
-            ? <NavLink to={p.adminUsuarios ? '/admin' : '/admin/estructura'} className={clase}>Administración</NavLink> : null}
-        </nav>
-        <NavLink to="/notificaciones" className="campana" aria-label={`Notificaciones: ${sinLeer} sin leer`}>
-          🔔{sinLeer > 0 ? <span className="contador">{sinLeer > 99 ? '99+' : sinLeer}</span> : null}
-        </NavLink>
-        <span className="usuario">{perfil.nombre}{perfil.area_nombre ? ` · ${perfil.area_nombre}` : ''}</span>
-        <button type="button" className="boton-secundario" onClick={() => void salir()}>Salir</button>
-      </header>
-    </>
+      {ENTORNO === 'pruebas' ? <div className="banda-pruebas">ENTORNO DE PRUEBAS</div> : null}
+      {ENTORNO === 'vista_previa_real' ? <div className="banda-pruebas banda-real">VISTA PREVIA CON BASE REAL · los cambios se guardan</div> : null}
+    <header className="cabecera">
+      <div className="cabecera-superior">
+        <NavLink to="/" className="marca"><span className="marca-icono" aria-hidden="true">P</span><span><b>PRESH TECH</b><small>Compras semanales</small></span></NavLink>
+        <div className="cabecera-cuenta"><CampanaAvisos /><span className="avatar" aria-hidden="true">{perfil.nombre.split(' ').map((p) => p[0]).slice(0, 2).join('')}</span><span className="usuario">{perfil.nombre}<small>Mi espacio de trabajo</small></span>
+          <button type="button" className="boton-secundario" disabled={saliendo} onClick={async () => { setSaliendo(true); try { await salir(); } finally { setSaliendo(false); } }}>{saliendo ? 'Saliendo…' : 'Salir'}</button></div>
+        <button type="button" className="boton-menu" aria-expanded={menuAbierto} aria-controls="menu-principal" onClick={() => setMenuAbierto(!menuAbierto)}>{menuAbierto ? 'Cerrar menú ×' : 'Menú ☰'}</button>
+      </div>
+      <nav id="menu-principal" className={`navegacion-principal${menuAbierto ? ' abierto' : ''}`} aria-label="Secciones" onClick={() => setMenuAbierto(false)}>
+        <NavLink to="/" className={clase} end>Inicio</NavLink>
+        {p.jefe ? <NavLink to="/aprobacion-solicitudes" className={clase}>Por aprobar (jefe)</NavLink> : null}
+        {p.consultaGlobal ? <NavLink to="/consulta" className={clase}>Consulta global</NavLink> : null}
+        {p.solicitante ? <NavLink to="/mis-solicitudes" className={clase}>Mis solicitudes</NavLink> : null}
+        {p.gestor ? <NavLink to="/gestion" className={clase}>Gestión de compras</NavLink> : null}
+        {p.aprobadorCotizacion ? <NavLink to="/aprobaciones" className={clase}>Aprobaciones</NavLink> : null}
+        {(p.almacen || p.gestor) ? <NavLink to="/almacen" className={clase}>Almacén</NavLink> : null}
+        {p.gestor ? <NavLink to="/compras-externas" className={clase}>Compras externas</NavLink> : null}
+        {p.gestor ? <NavLink to="/reportes" className={clase}>Reportes</NavLink> : null}
+        {(p.adminUsuarios || p.adminCatalogos) ? <NavLink to={p.adminUsuarios ? "/admin" : "/admin/estructura"} className={clase}>Administración</NavLink> : null}
+      </nav>
+
+    </header></>
   );
 }
 
@@ -132,7 +134,7 @@ export function App() {
     <ProveedorSesion>
       <BrowserRouter>
         <RedirigirRecuperacion />
-        <Cabecera />
+        <a className="saltar-contenido" href="#contenido-principal">Saltar al contenido</a><Cabecera /><main id="contenido-principal" tabIndex={-1}>
         <Routes>
           {/* Acceso y recuperación: sin cambios en esta versión. */}
           <Route path="/acceso" element={<Acceso />} />
@@ -153,13 +155,14 @@ export function App() {
           <Route path="/reportes" element={<Protegida permite={(p) => p.gestor || p.consultaGlobal}><Reportes /></Protegida>} />
           <Route path="/admin" element={<Protegida permite={(p) => p.adminUsuarios}><AdminUsuarios /></Protegida>} />
           <Route path="/admin/estructura" element={<Protegida permite={(p) => p.adminCatalogos}><AdminEstructura /></Protegida>} />
+          <Route path="/admin/organigrama" element={<Protegida permite={(p) => p.adminGeneral}><AdminOrganigrama /></Protegida>} />
           <Route path="/admin/calendario" element={<Protegida permite={(p) => p.adminCatalogos}><AdminCalendario /></Protegida>} />
           <Route path="/admin/catalogos" element={<Protegida permite={(p) => p.adminCatalogos}><AdminCatalogos /></Protegida>} />
           <Route path="/admin/auditoria" element={<Protegida permite={(p) => p.adminGeneral}><AdminAuditoria /></Protegida>} />
           <Route path="/admin/recuperacion" element={<Protegida permite={(p) => p.adminGeneral}><AdminRecuperacion /></Protegida>} />
           <Route path="/admin/importacion" element={<Protegida permite={(p) => p.adminGeneral}><AdminImportacion /></Protegida>} />
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        </Routes></main>
       </BrowserRouter>
     </ProveedorSesion>
   );

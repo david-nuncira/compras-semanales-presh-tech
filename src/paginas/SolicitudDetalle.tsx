@@ -1,3 +1,4 @@
+import { Formulario } from '../componentes/UI.tsx';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase, rpc, limpiarError, nuevoOp } from '../supabase.ts';
@@ -418,7 +419,7 @@ export function SolicitudDetalle() {
       {/* ---------- Formulario de artículo ---------- */}
       <Modal titulo={modalArt?.id ? 'Editar artículo' : 'Agregar artículo'} abierto={!!modalArt} alCerrar={() => setModalArt(null)}>
         {modalArt ? (
-          <form className="formulario" onSubmit={guardarArticulo} noValidate>
+          <Formulario className="formulario" onSubmit={guardarArticulo} noValidate>
             <p className="leyenda-campos"><span className="marca-obligatorio">* obligatorio</span> · los demás son opcionales.</p>
             <Campo etiqueta="Nombre del artículo" requerido error={erroresArt.nombre}>
               <input value={modalArt.nombre} maxLength={300} onChange={(e) => setModalArt({ ...modalArt, nombre: e.target.value })} />
@@ -464,13 +465,13 @@ export function SolicitudDetalle() {
               <button type="button" className="boton-secundario" onClick={() => setModalArt(null)}>Cancelar</button>
               <button type="submit" className="boton-primario">Guardar en el borrador</button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
 
       <Modal titulo="Cambiar semana objetivo" abierto={!!modalSemana} alCerrar={() => setModalSemana(null)}>
         {modalSemana ? (
-          <form className="formulario" onSubmit={async (e) => {
+          <Formulario className="formulario" onSubmit={async (e) => {
             e.preventDefault();
             if (modalSemana.motivo.trim().length < 3) { setErrorArt('Indica el motivo del cambio.'); return; }
             setErrorArt(null);
@@ -491,13 +492,13 @@ export function SolicitudDetalle() {
               <button type="button" className="boton-secundario" onClick={() => setModalSemana(null)}>Cancelar</button>
               <button type="submit" className="boton-primario">Guardar semana</button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
 
       <Modal titulo="Reportar novedad" abierto={!!modalNovedad} alCerrar={() => setModalNovedad(null)}>
         {modalNovedad ? (
-          <form className="formulario" onSubmit={crearNovedad}>
+          <Formulario className="formulario" onSubmit={crearNovedad}>
             <Campo etiqueta="Tipo de novedad" requerido>
               <select value={modalNovedad.tipo} onChange={(e) => setModalNovedad({ ...modalNovedad, tipo: e.target.value as TipoNovedad })}>
                 <option value="entrega_incorrecta">Entrega incorrecta</option>
@@ -515,7 +516,7 @@ export function SolicitudDetalle() {
               <button type="button" className="boton-secundario" onClick={() => setModalNovedad(null)}>Cancelar</button>
               <button type="submit" className="boton-primario">Registrar novedad</button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
     </div>

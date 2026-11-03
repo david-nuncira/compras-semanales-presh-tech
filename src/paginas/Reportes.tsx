@@ -1,3 +1,4 @@
+import { EstadoVacio } from '../componentes/UI.tsx';
 import { useCallback, useState } from 'react';
 import { supabase, limpiarError } from '../supabase.ts';
 import { useCatalogos } from '../datos.ts';
@@ -37,7 +38,8 @@ export function Reportes() {
   const [incluirExternas, setIncluirExternas] = useState(true);
 
   const cargar = useCallback(async () => {
-    setError(null); setCargado(false);
+    setError(null);
+    try { setCargado(false);
     let q1 = supabase.from('v_costos_gestionados').select('*');
     let q2 = supabase.from('v_costos_externos').select('*');
     if (desde) { q1 = q1.gte('fecha_compra', desde); q2 = q2.gte('fecha_compra', desde); }
@@ -50,6 +52,7 @@ export function Reportes() {
     setGestionadas((r1.data ?? []) as FilaCosto[]);
     setExternas((r2.data ?? []) as FilaCosto[]);
     setCargado(true);
+    } catch (e) { setError(limpiarError(e instanceof Error ? e.message : String(e))); }
   }, [desde, hasta, fArea, fCC]);
 
   function claveDe(f: FilaCosto): string {
@@ -150,7 +153,7 @@ export function Reportes() {
       </div>
       <MensajeError texto={error} />
       {!cargado ? <p className="texto-suave">Elige los filtros y pulsa “Calcular”.</p> : grupos.length === 0 ? (
-        <div className="tarjeta"><p>No hay compras en el rango seleccionado.</p></div>
+        <EstadoVacio titulo="Sin registros en esta vista">No hay compras en el rango seleccionado.</EstadoVacio>
       ) : (
         <div className="tabla-envoltura">
           <table className="tabla">
