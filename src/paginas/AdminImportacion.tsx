@@ -1,3 +1,4 @@
+import { Formulario } from '../componentes/UI.tsx';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AdminNav } from '../componentes/AdminNav.tsx';
@@ -338,7 +339,7 @@ export function AdminImportacion() {
 
       <Modal titulo={`Convertir fila ${convertir?.numero_fila ?? ''} en solicitud nueva`} abierto={!!convertir} alCerrar={() => setConvertir(null)}>
         {convertir ? (
-          <form className="formulario" onSubmit={async (e) => {
+          <Formulario className="formulario" onSubmit={async (e) => {
             e.preventDefault(); setMError(null);
             try {
               const r = await rpc<{ numero: string }>('fn_importacion_convertir_en_solicitud', {
@@ -359,7 +360,7 @@ export function AdminImportacion() {
               <button type="button" className="boton-secundario" onClick={() => setConvertir(null)}>Cancelar</button>
               <button type="submit" className="boton-primario">Crear solicitud en borrador</button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
     </div>

@@ -1,0 +1,9 @@
+.cabecera-cuenta .campana { color:#fff; display:flex; align-items:center; gap:.35rem; padding:.5rem; border:1px solid #ffffff40; border-radius:10px; font-size:.8rem; text-decoration:none; }
+.cabecera-cuenta .contador { background:#e8c97d; color:#183f30; border-radius:20px; padding:.1rem .4rem; }
+.organigrama-grupo { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem; }
+.organigrama-grupo .tarjeta { margin:0; }
+.organigrama-grupo ul { padding-left:1.1rem; }
+.organigrama-grupo li { margin:.6rem 0; }
+.buzon-aviso { padding:1.2rem 0;border-bottom:1px solid #e3eae5; }
+.buzon-aviso.no-leida { border-left:4px solid #2b7952;padding-left:1rem; }
+@media(max-width:650px){.cabecera-cuenta .campana span:first-child{display:none}.cabecera-cuenta .campana{padding:.4rem;font-size:.7rem}.cabecera-cuenta .usuario{display:none}}

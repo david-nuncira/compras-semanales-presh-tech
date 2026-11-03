@@ -1,3 +1,4 @@
+import { EstadoError } from '../componentes/UI.tsx';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AdminNav } from '../componentes/AdminNav.tsx';
@@ -28,6 +29,7 @@ export function AdminAuditoria() {
 
   const cargar = useCallback(async () => {
     setError(null);
+    try {
     let q = supabase.from('auditoria').select('*', { count: 'exact' });
     if (fTabla) q = q.eq('tabla', fTabla);
     if (fAccion.trim()) q = q.ilike('accion', `%${fAccion.trim()}%`);
@@ -48,6 +50,7 @@ export function AdminAuditoria() {
       for (const p of (ps ?? []) as Array<{ id: string; nombre: string }>) mapa[p.id] = p.nombre;
       setNombres(mapa);
     }
+    } catch (e) { setError(limpiarError(e instanceof Error ? e.message : String(e))); }
   }, [fTabla, fAccion, fRegistro, fDesde, fHasta, pagina]);
 
   useActualizacionPeriodica(cargar, 120000, [cargar]);
@@ -77,7 +80,7 @@ export function AdminAuditoria() {
         <button type="button" className="boton-secundario" onClick={() => void cargar()}>Actualizar</button>
       </div>
       <MensajeError texto={error} />
-      {!filas ? <Cargando /> : (
+      {!filas ? (error ? <EstadoError alReintentar={() => void cargar()} /> : <Cargando />) : (
         <div className="tabla-envoltura">
           <table className="tabla">
             <thead><tr>

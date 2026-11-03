@@ -1,3 +1,4 @@
+import { Formulario, Cargando } from '../componentes/UI.tsx';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, limpiarError } from '../supabase.ts';
@@ -22,7 +23,7 @@ export function Restablecer() {
     const frag = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const desc = frag.get('error_description');
     if (desc) {
-      setError('El enlace no es válido o ya venció: ' + desc.replace(/\+/g, ' ') + '. Pide al administrador un enlace nuevo.');
+      setError('El enlace no es válido o ya venció. Pide al administrador un enlace nuevo.');
       return;
     }
     supabase.auth.getSession().then(({ data }) => {
@@ -58,21 +59,21 @@ export function Restablecer() {
       <p className="marca-grande">🛒 Compras Semanales Presh Tech</p>
       <h2>Definir nueva contraseña</h2>
       {listo ? (
-        <form className="formulario" onSubmit={guardar}>
+        <Formulario className="formulario" onSubmit={guardar}>
           <Campo etiqueta="Nueva contraseña (mínimo 10 caracteres)" requerido>
-            <input type="password" value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="new-password" />
+            <input id="clave-principal" type="password" minLength={10} value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="new-password" />
           </Campo>
           <Campo etiqueta="Repite la contraseña" requerido>
-            <input type="password" value={clave2} onChange={(e) => setClave2(e.target.value)} autoComplete="new-password" />
+            <input type="password" data-igual-a="clave-principal" value={clave2} onChange={(e) => setClave2(e.target.value)} autoComplete="new-password" />
           </Campo>
           <MensajeError texto={error} />
           <MensajeExito texto={exito} />
           <button type="submit" className="boton-primario" disabled={ocupado}>
             {ocupado ? 'Guardando…' : 'Guardar contraseña'}
           </button>
-        </form>
+        </Formulario>
       ) : (
-        <MensajeError texto={error ?? 'Validando el enlace…'} />
+        <><MensajeError texto={error} />{error ? <p className="texto-suave">No puedes cambiar la contraseña con este enlace. Pide al administrador uno nuevo por un canal corporativo.</p> : <Cargando texto="Validando el enlace…" />}</>
       )}
     </div>
   );

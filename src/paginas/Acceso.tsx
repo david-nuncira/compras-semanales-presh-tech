@@ -1,3 +1,4 @@
+import { Formulario } from '../componentes/UI.tsx';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, limpiarError } from '../supabase.ts';
@@ -108,28 +109,28 @@ export function Acceso() {
   return (
     <div className="acceso">
       <p className="marca-grande">🛒 Compras Semanales Presh Tech</p>
-      <div className="acciones-fila" role="tablist">
-        <button type="button" className={modo === 'entrar' ? 'boton-primario' : 'boton-secundario'}
+      <div className="acciones-fila" role="group" aria-label="Opciones de acceso">
+        <button type="button" aria-pressed={modo === 'entrar'} className={modo === 'entrar' ? 'boton-primario' : 'boton-secundario'}
           onClick={() => { setModo('entrar'); setError(null); setExito(null); }}>Iniciar sesión</button>
-        <button type="button" className={modo === 'registro' ? 'boton-primario' : 'boton-secundario'}
+        <button type="button" aria-pressed={modo === 'registro'} className={modo === 'registro' ? 'boton-primario' : 'boton-secundario'}
           onClick={() => { setModo('registro'); setError(null); setExito(null); }}>Registrarme</button>
       </div>
-      <form className="formulario" onSubmit={enviar}>
+      <Formulario className="formulario" onSubmit={enviar}>
         {modo === 'registro' ? (
           <Campo etiqueta="Nombre completo" requerido>
-            <input value={nombre} onChange={(e) => setNombre(e.target.value)} autoComplete="name" maxLength={120} />
+            <input minLength={3} value={nombre} onChange={(e) => setNombre(e.target.value)} autoComplete="name" maxLength={120} />
           </Campo>
         ) : null}
         <Campo etiqueta="Correo corporativo" requerido>
           <input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} autoComplete="username" />
         </Campo>
         <Campo etiqueta="Contraseña" requerido>
-          <input type="password" value={clave} onChange={(e) => setClave(e.target.value)}
+          <input id="clave-principal" type="password" value={clave} onChange={(e) => setClave(e.target.value)}
             autoComplete={modo === 'registro' ? 'new-password' : 'current-password'} minLength={modo === 'registro' ? 10 : undefined} />
         </Campo>
         {modo === 'registro' ? (
           <Campo etiqueta="Repite la contraseña" requerido>
-            <input type="password" value={clave2} onChange={(e) => setClave2(e.target.value)} autoComplete="new-password" />
+            <input type="password" data-igual-a="clave-principal" value={clave2} onChange={(e) => setClave2(e.target.value)} autoComplete="new-password" />
           </Campo>
         ) : null}
         <Turnstile onToken={setToken} />
@@ -138,7 +139,7 @@ export function Acceso() {
         <button type="submit" className="boton-primario" disabled={ocupado}>
           {ocupado ? 'Procesando…' : modo === 'registro' ? 'Crear cuenta (queda pendiente de activación)' : 'Entrar'}
         </button>
-      </form>
+      </Formulario>
       <hr className="separador" />
       <p className="texto-suave">
         ¿Olvidaste tu contraseña? La recuperación es supervisada: pídesela al

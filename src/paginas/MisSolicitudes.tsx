@@ -1,3 +1,4 @@
+import { Formulario } from '../componentes/UI.tsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase, limpiarError } from '../supabase.ts';
@@ -194,7 +195,7 @@ export function MisSolicitudes() {
       <Paginador pagina={pagina} porPagina={POR_PAGINA} total={total} alCambiar={setPagina} />
 
       <Modal titulo="Nueva solicitud (se guarda como borrador)" abierto={abierto} alCerrar={() => setAbierto(false)}>
-        <form className="formulario" onSubmit={crear} noValidate>
+        <Formulario className="formulario" onSubmit={crear} noValidate>
           <p className="leyenda-campos">Los campos marcados con <span className="marca-obligatorio">* obligatorio</span> son necesarios. Guardar el borrador NO lo envía a nadie.</p>
           <div className="fila-campos">
             <Campo etiqueta="Área" requerido error={errores.area} ayuda="Es el área a la que estás vinculado; la aprueba su jefe.">
@@ -246,7 +247,7 @@ export function MisSolicitudes() {
               {creando ? 'Creando…' : 'Crear borrador y agregar artículos'}
             </button>
           </div>
-        </form>
+        </Formulario>
       </Modal>
     </div>
   );

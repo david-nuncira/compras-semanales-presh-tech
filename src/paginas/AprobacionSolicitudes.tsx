@@ -1,3 +1,4 @@
+import { Formulario } from '../componentes/UI.tsx';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, rpc, limpiarError, nuevoOp } from '../supabase.ts';
@@ -203,7 +204,7 @@ export function AprobacionSolicitudes() {
       <Modal titulo={decision ? (decision.tipo === 'aprobar' ? `Aprobar ${decision.ap.numero}` : decision.tipo === 'devolver' ? `Devolver ${decision.ap.numero}` : `Rechazar ${decision.ap.numero}`) : ''}
         abierto={!!decision} alCerrar={() => setDecision(null)}>
         {decision ? (
-          <form className="formulario" onSubmit={decidir}>
+          <Formulario className="formulario" onSubmit={decidir}>
             {decision.tipo === 'aprobar' ? (
               <p>Se aprueba la versión {decision.ap.version} tal como está. Pasará a Compras en su fecha de recepción
                 {decision.ap.es_extraordinaria ? ' (extraordinaria: de inmediato)' : ''}. Si luego cambia el contenido, necesitará una nueva aprobación.</p>
@@ -223,7 +224,7 @@ export function AprobacionSolicitudes() {
                 {ocupado ? 'Guardando…' : decision.tipo === 'aprobar' ? 'Aprobar' : decision.tipo === 'devolver' ? 'Devolver' : 'Rechazar'}
               </button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
     </div>

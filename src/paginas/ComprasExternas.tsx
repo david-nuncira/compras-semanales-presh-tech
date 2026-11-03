@@ -1,3 +1,6 @@
+import { EstadoVacio } from '../componentes/UI.tsx';
+import { EstadoError } from '../componentes/UI.tsx';
+import { Formulario } from '../componentes/UI.tsx';
 import { useCallback, useState } from 'react';
 import { supabase, rpc, limpiarError, nuevoOp } from '../supabase.ts';
 import { useCatalogos, useActualizacionPeriodica } from '../datos.ts';
@@ -32,10 +35,13 @@ export function ComprasExternas() {
   const [ocupado, setOcupado] = useState(false);
 
   const cargar = useCallback(async () => {
+    setError(null);
+    try {
     const { data, error: e } = await supabase.from('compras_externas')
       .select('*').order('fecha_compra', { ascending: false }).limit(500);
     if (e) { setError(limpiarError(e.message)); return; }
     setFilas((data ?? []) as CompraExterna[]);
+    } catch (e) { setError(limpiarError(e instanceof Error ? e.message : String(e))); }
   }, []);
 
   useActualizacionPeriodica(cargar, 60000, [cargar]);
@@ -86,8 +92,8 @@ export function ComprasExternas() {
       </div>
       <MensajeError texto={error} />
       <MensajeExito texto={exito} />
-      {!filas ? <Cargando /> : filas.length === 0 ? (
-        <div className="tarjeta"><p>No hay compras externas registradas.</p></div>
+      {!filas ? (error ? <EstadoError alReintentar={() => void cargar()} /> : <Cargando />) : filas.length === 0 ? (
+        <EstadoVacio titulo="Sin registros en esta vista">No hay compras externas registradas.</EstadoVacio>
       ) : (
         <div className="tabla-envoltura">
           <table className="tabla">
@@ -124,7 +130,7 @@ export function ComprasExternas() {
 
       <Modal titulo="Registrar compra externa" abierto={!!m} alCerrar={() => setM(null)}>
         {m ? (
-          <form className="formulario" onSubmit={crear}>
+          <Formulario className="formulario" onSubmit={crear}>
             <div className="fila-campos">
               <Campo etiqueta="Tipo" requerido>
                 <select value={m.tipo} onChange={(e) => setM({ ...m, tipo: e.target.value as CompraExterna['tipo'] })}>
@@ -162,7 +168,7 @@ export function ComprasExternas() {
                   {cat?.proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                 </select>
               </Campo>
-              <Campo etiqueta="Proveedor (texto, si no está en catálogo)">
+              <Campo etiqueta="Proveedor (texto, si no está en catálogo)" requerido={!m.proveedor}>
                 <input value={m.proveedorTexto} onChange={(e) => setM({ ...m, proveedorTexto: e.target.value })} />
               </Campo>
             </div>
@@ -170,13 +176,13 @@ export function ComprasExternas() {
               <input value={m.articulo} onChange={(e) => setM({ ...m, articulo: e.target.value })} />
             </Campo>
             <div className="fila-campos">
-              <Campo etiqueta="Cantidad" requerido><input inputMode="decimal" value={m.cantidad} onChange={(e) => setM({ ...m, cantidad: e.target.value })} /></Campo>
+              <Campo etiqueta="Cantidad" requerido><input inputMode="decimal" data-numero="true" data-positivo="true" value={m.cantidad} onChange={(e) => setM({ ...m, cantidad: e.target.value })} /></Campo>
               <Campo etiqueta="Unidad"><input value={m.unidad} onChange={(e) => setM({ ...m, unidad: e.target.value })} /></Campo>
-              <Campo etiqueta="Moneda" requerido><input value={m.moneda} maxLength={3} onChange={(e) => setM({ ...m, moneda: e.target.value.toUpperCase() })} /></Campo>
+              <Campo etiqueta="Moneda" requerido><input value={m.moneda} minLength={3} pattern="[A-Za-z]{3}" maxLength={3} onChange={(e) => setM({ ...m, moneda: e.target.value.toUpperCase() })} /></Campo>
             </div>
             <div className="fila-campos">
               <Campo etiqueta="Importe total (vacío = sin información)">
-                <input inputMode="decimal" value={m.importe} onChange={(e) => setM({ ...m, importe: e.target.value })} />
+                <input inputMode="decimal" data-numero="true" value={m.importe} onChange={(e) => setM({ ...m, importe: e.target.value })} />
               </Campo>
               <Campo etiqueta="Fecha de compra" requerido>
                 <input type="date" value={m.fecha} onChange={(e) => setM({ ...m, fecha: e.target.value })} />
@@ -188,7 +194,7 @@ export function ComprasExternas() {
               <button type="button" className="boton-secundario" onClick={() => setM(null)}>Cancelar</button>
               <button type="submit" className="boton-primario" disabled={ocupado}>{ocupado ? 'Guardando…' : 'Registrar'}</button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
 
