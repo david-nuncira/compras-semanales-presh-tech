@@ -79,6 +79,9 @@ function Cabecera() {
   if (!sesion || !perfil || perfil.estado !== 'activo') return null;
   const clase = ({ isActive }: { isActive: boolean }) => (isActive ? 'activo' : '');
   return (
+    <>
+      {ENTORNO === 'pruebas' ? <div className="banda-pruebas">ENTORNO DE PRUEBAS</div> : null}
+      {ENTORNO === 'vista_previa_real' ? <div className="banda-pruebas banda-real">VISTA PREVIA CON BASE REAL · los cambios se guardan</div> : null}
     <header className="cabecera">
       <div className="cabecera-superior">
         <NavLink to="/" className="marca"><span className="marca-icono" aria-hidden="true">P</span><span><b>PRESH TECH</b><small>Compras semanales</small></span></NavLink>
@@ -99,7 +102,7 @@ function Cabecera() {
         {(p.adminUsuarios || p.adminCatalogos) ? <NavLink to={p.adminUsuarios ? "/admin" : "/admin/estructura"} className={clase}>Administración</NavLink> : null}
       </nav>
 
-    </header>
+    </header></>
   );
 }
 
