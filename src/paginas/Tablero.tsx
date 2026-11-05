@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabase.ts';
 import { useSesion } from '../contexto/Sesion.tsx';
@@ -21,10 +21,18 @@ interface Indicadores {
   extraordinarias_por_area: Array<{ area: string; n: number; total_cop: number }>;
   gasto_por_area_cc: Array<{ area: string | null; cc: string | null; moneda: string; total: number }>;
 }
+interface Accion { icono: string; titulo: string; detalle: string; enlace: string; etiqueta: string; cantidad?: number; }
 
 function Ficha({ n, texto, enlace }: { n: number | undefined; texto: string; enlace?: string }) {
-  const contenido = <><b>{n ?? 0}</b> {texto}</>;
+  const contenido = <><b>{n ?? 0}</b><span>{texto}</span></>;
   return <div className="ficha">{enlace ? <Link to={enlace}>{contenido}</Link> : contenido}</div>;
+}
+
+function AccionRapida({ accion }: { accion: Accion }) {
+  return <Link className="accion-rapida" to={accion.enlace}>
+    <span className="accion-icono" aria-hidden="true">{accion.icono}</span>
+    <span className="accion-contenido"><strong>{accion.titulo}{accion.cantidad !== undefined ? <em>{accion.cantidad}</em> : null}</strong><span>{accion.detalle}</span><small>{accion.etiqueta} →</small></span>
+  </Link>;
 }
 
 function horasATexto(h: number | null): string {
@@ -54,102 +62,67 @@ export function Tablero() {
     }
   }, 60000, [desde, hasta, veIndicadores]);
 
-  return (
-    <div className="contenido">
-      <h1>Hola, {perfil?.nombre}</h1>
-      <p className="texto-suave">Indicadores sobre lo que tu cuenta puede ver{hora ? ` · actualizado ${hora}` : ''}.</p>
-      {!r ? <Cargando /> : (
-        <>
-          {p.solicitante ? (
-            <div className="tarjeta">
-              <h2>Mis solicitudes</h2>
-              <div className="tablero">
-                <Ficha n={r.mis_devueltas} texto="devueltas para corregir" enlace="/mis-solicitudes" />
-              </div>
-              <p><Link to="/mis-solicitudes">Ir a Mis solicitudes →</Link></p>
-            </div>
-          ) : null}
-          {p.jefe ? (
-            <div className="tarjeta">
-              <h2>Aprobación de jefe</h2>
-              <div className="tablero">
-                <Ficha n={r.aprobaciones_jefe_mias} texto="pendientes de mi aprobación" enlace="/aprobacion-solicitudes" />
-              </div>
-            </div>
-          ) : null}
-          {(p.consultaGlobal || p.gestor) ? (
-            <div className="tarjeta">
-              <h2>Operación de compras</h2>
-              <div className="tablero">
-                {p.consultaGlobal ? <Ficha n={r.pendientes_aprobacion} texto="pendientes de aprobación (aún no son de Compras)" enlace="/consulta" /> : null}
-                {p.consultaGlobal ? <Ficha n={r.programadas} texto="programadas para próximos ciclos" enlace="/consulta" /> : null}
-                <Ficha n={r.pendientes} texto="artículos pendientes de gestión" enlace={p.gestor ? '/gestion' : undefined} />
-                <Ficha n={r.por_aprobar} texto="esperan aprobación de cotización/gasto" />
-                <Ficha n={r.atrasados} texto="atrasados" />
-                <Ficha n={r.por_llegar} texto="compras por llegar" />
-                <Ficha n={r.novedades_abiertas} texto="novedades abiertas" />
-              </div>
-            </div>
-          ) : null}
-          {(p.almacen || p.gestor || p.consultaGlobal) ? (
-            <div className="tarjeta">
-              <h2>Almacén</h2>
-              <div className="tablero">
-                <Ficha n={r.por_llegar} texto="por llegar" enlace="/almacen" />
-                <Ficha n={r.en_almacen} texto="con saldo disponible" enlace="/almacen" />
-                <Ficha n={r.pendientes_entrega} texto="pendientes de entrega" enlace="/almacen" />
-                <Ficha n={r.entregados} texto="con entregas" />
-              </div>
-            </div>
-          ) : null}
-        </>
-      )}
+  const acciones = useMemo<Accion[]>(() => {
+    if (!r) return [];
+    const lista: Accion[] = [];
+    if (p.solicitante) lista.push({ icono: '+', titulo: 'Crear o revisar una solicitud', detalle: r.mis_devueltas ? `${r.mis_devueltas} devuelta(s) necesita(n) corrección.` : 'Empieza con un borrador. Nada se envía hasta que tú lo confirmes.', enlace: '/mis-solicitudes', etiqueta: 'Mis solicitudes', cantidad: r.mis_devueltas || undefined });
+    if (p.jefe) lista.push({ icono: '✓', titulo: 'Aprobar solicitudes del equipo', detalle: r.aprobaciones_jefe_mias ? 'Revisa la necesidad antes de que llegue a Compras.' : 'No tienes solicitudes esperando ahora.', enlace: '/aprobacion-solicitudes', etiqueta: 'Ver aprobaciones', cantidad: r.aprobaciones_jefe_mias || undefined });
+    if (p.gestor) lista.push({ icono: '◌', titulo: 'Gestionar compras', detalle: r.pendientes ? 'Cotiza, compara y da seguimiento a las solicitudes ya aprobadas.' : 'No hay artículos pendientes de gestión.', enlace: '/gestion', etiqueta: 'Abrir gestión', cantidad: r.pendientes || undefined });
+    if (p.aprobadorCotizacion) lista.push({ icono: '$', titulo: 'Decidir cotizaciones', detalle: r.por_aprobar ? 'Hay decisiones de cotización o gasto esperando tu revisión.' : 'No hay cotizaciones pendientes.', enlace: '/aprobaciones', etiqueta: 'Ver cotizaciones', cantidad: r.por_aprobar || undefined });
+    if (p.almacen) lista.push({ icono: '□', titulo: 'Registrar entradas y entregas', detalle: r.pendientes_entrega ? 'Hay entregas por confirmar.' : 'Consulta lo que está por llegar o disponible.', enlace: '/almacen', etiqueta: 'Abrir almacén', cantidad: r.pendientes_entrega || undefined });
+    if (p.adminUsuarios || p.adminCatalogos) lista.push({ icono: '⌁', titulo: 'Administrar personas y estructura', detalle: 'Activa cuentas, revisa jefaturas y mantiene los catálogos al día.', enlace: p.adminGeneral ? '/admin/organigrama' : '/admin', etiqueta: 'Ir a administración' });
+    return lista;
+  }, [r, p]);
 
-      {veIndicadores ? (
-        <div className="tarjeta">
-          <h2>Indicadores del período</h2>
-          <div className="filtros">
-            <Campo etiqueta="Desde"><input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></Campo>
-            <Campo etiqueta="Hasta"><input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></Campo>
-          </div>
-          {!ind ? <Cargando /> : (
-            <>
-              <div className="tablero">
-                <div className="ficha"><b>{ind.solicitudes_enviadas}</b> solicitudes enviadas</div>
-                <div className="ficha"><b>{ind.anticipacion_promedio_dias ?? '—'}</b> días de anticipación promedio
-                  <div className="texto-suave">({ind.anticipacion_con_dato} con fecha requerida)</div></div>
-                <div className="ficha"><b>{horasATexto(ind.horas_envio_aprobacion)}</b> envío → aprobación</div>
-                <div className="ficha"><b>{horasATexto(ind.horas_aprobacion_recepcion)}</b> aprobación → recepción Compras</div>
-                <div className="ficha"><b>{horasATexto(ind.horas_recepcion_compra)}</b> recepción Compras → compra</div>
-                <div className="ficha"><b>{ind.extraordinarias}</b> extraordinarias · {fmtMoneda(ind.extraordinarias_total_cop, 'COP')}</div>
-              </div>
-              <p className="texto-suave">
-                Anticipación = días entre la creación real de la solicitud y su fecha requerida. Los tiempos de
-                Compras se miden desde la recepción efectiva, no desde la creación.
-              </p>
-              {ind.extraordinarias_por_area.length > 0 ? (
-                <>
-                  <h3>Extraordinarias por área</h3>
-                  <table className="tabla"><thead><tr><th>Área</th><th className="numero">Cantidad</th><th className="numero">Gasto COP</th></tr></thead>
-                    <tbody>{ind.extraordinarias_por_area.map((x) => (
-                      <tr key={x.area}><td>{x.area}</td><td className="numero">{x.n}</td><td className="numero">{fmtMoneda(x.total_cop, 'COP')}</td></tr>
-                    ))}</tbody></table>
-                </>
-              ) : null}
-              <h3>Gasto comprado por área y centro de costo</h3>
-              {ind.gasto_por_area_cc.length === 0 ? <p className="texto-suave">Sin compras en el período.</p> : (
-                <div className="tabla-envoltura">
-                  <table className="tabla"><thead><tr><th>Área</th><th>Centro de costo</th><th>Moneda</th><th className="numero">Total</th></tr></thead>
-                    <tbody>{ind.gasto_por_area_cc.map((g, i) => (
-                      <tr key={i}><td>{g.area ?? 'Sin área'}</td><td>{g.cc ?? '—'}</td><td>{g.moneda}</td><td className="numero">{fmtMoneda(g.total, g.moneda)}</td></tr>
-                    ))}</tbody></table>
-                </div>
-              )}
-              <p><Link to="/reportes">Más detalle en Reportes →</Link></p>
-            </>
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
+  const prioridad = useMemo<Accion | null>(() => {
+    if (!r) return null;
+    if (p.solicitante && (r.mis_devueltas ?? 0) > 0) return { icono: '↩', titulo: 'Tienes una solicitud devuelta para corregir', detalle: 'Ábrela, revisa el comentario y envíala otra vez cuando esté lista.', enlace: '/mis-solicitudes', etiqueta: 'Corregir ahora', cantidad: r.mis_devueltas };
+    if (p.jefe && (r.aprobaciones_jefe_mias ?? 0) > 0) return { icono: '✓', titulo: 'Tienes solicitudes esperando tu aprobación', detalle: 'Tu decisión permite que Compras continúe con el proceso.', enlace: '/aprobacion-solicitudes', etiqueta: 'Revisar ahora', cantidad: r.aprobaciones_jefe_mias };
+    if (p.gestor && r.pendientes > 0) return { icono: '◌', titulo: 'Hay artículos listos para gestión de Compras', detalle: 'Puedes cotizar o registrar una compra directa cuando aplique.', enlace: '/gestion', etiqueta: 'Ir a gestión', cantidad: r.pendientes };
+    if (p.aprobadorCotizacion && r.por_aprobar > 0) return { icono: '$', titulo: 'Hay cotizaciones esperando decisión', detalle: 'Revisa el valor y los documentos adjuntos antes de aprobar o rechazar.', enlace: '/aprobaciones', etiqueta: 'Revisar cotizaciones', cantidad: r.por_aprobar };
+    if (p.solicitante) return { icono: '+', titulo: '¿Necesitas algo para tu área?', detalle: 'Crea un borrador, agrega los artículos y envíalo cuando esté completo.', enlace: '/mis-solicitudes', etiqueta: 'Crear solicitud' };
+    return null;
+  }, [r, p]);
+
+  return <div className="contenido">
+    <section className="bienvenida">
+      <div><span className="sobre-titulo">TU ESPACIO DE TRABAJO</span><h1>Hola, {perfil?.nombre?.split(' ')[0] ?? 'bienvenido'}</h1><p>Elige una tarea y el sistema te mostrará solo lo que necesitas hacer.</p></div>
+      <span className="bienvenida-actualizacion">{hora ? `Actualizado ${hora}` : 'Preparando tu resumen…'}</span>
+    </section>
+
+    {!r ? <Cargando texto="Preparando tus tareas pendientes…" /> : <>
+      {prioridad ? <section className="accion-destacada" aria-label="Tarea principal">
+        <span className="accion-destacada-icono" aria-hidden="true">{prioridad.icono}</span>
+        <div><span className="sobre-titulo">LO MÁS IMPORTANTE AHORA</span><h2>{prioridad.titulo}</h2><p>{prioridad.detalle}</p></div>
+        <Link className="boton-primario enlace-boton" to={prioridad.enlace}>{prioridad.etiqueta}{prioridad.cantidad ? ` (${prioridad.cantidad})` : ''}</Link>
+      </section> : null}
+
+      {acciones.length > 0 ? <section aria-labelledby="acciones-titulo"><div className="seccion-cabecera"><div><span className="sobre-titulo">ACCESOS RÁPIDOS</span><h2 id="acciones-titulo">¿Qué quieres hacer?</h2></div></div><div className="acciones-rapidas">{acciones.map((accion) => <AccionRapida key={accion.titulo} accion={accion} />)}</div></section> : null}
+
+      {p.solicitante ? <section className="tarjeta guia-solicitud"><div className="seccion-cabecera"><div><span className="sobre-titulo">GUÍA RÁPIDA</span><h2>Así avanza una compra</h2></div><Link to="/mis-solicitudes">Ver mis solicitudes →</Link></div>
+        <ol className="pasos-solicitud"><li><span>1</span><div><b>Armas el borrador</b><p>Indicas el centro de costo y agregas los artículos. Aún no llega a nadie.</p></div></li><li><span>2</span><div><b>Tu jefe revisa</b><p>Cuando la envías, primero la recibe el jefe de tu área.</p></div></li><li><span>3</span><div><b>Compras continúa</b><p>Tras la aprobación, Compras cotiza o realiza la compra y te mantiene informado.</p></div></li></ol>
+      </section> : null}
+
+      {p.solicitante ? <section className="tarjeta resumen-simple"><div className="seccion-cabecera"><div><span className="sobre-titulo">SEGUIMIENTO</span><h2>Mis solicitudes</h2></div><Link to="/mis-solicitudes">Ver todas →</Link></div><div className="tablero"><Ficha n={r.mis_devueltas} texto="devueltas para corregir" enlace="/mis-solicitudes" /></div></section> : null}
+      {p.jefe ? <section className="tarjeta resumen-simple"><div className="seccion-cabecera"><div><span className="sobre-titulo">APROBACIONES</span><h2>Solicitudes del equipo</h2></div><Link to="/aprobacion-solicitudes">Ver pendientes →</Link></div><div className="tablero"><Ficha n={r.aprobaciones_jefe_mias} texto="pendientes de mi aprobación" enlace="/aprobacion-solicitudes" /></div></section> : null}
+      {(p.consultaGlobal || p.gestor) ? <section className="tarjeta resumen-simple"><div className="seccion-cabecera"><div><span className="sobre-titulo">OPERACIÓN</span><h2>Resumen de Compras</h2></div>{p.gestor ? <Link to="/gestion">Abrir gestión →</Link> : null}</div><div className="tablero">
+        {p.consultaGlobal ? <Ficha n={r.pendientes_aprobacion} texto="aún esperando aprobación" enlace="/consulta" /> : null}
+        {p.consultaGlobal ? <Ficha n={r.programadas} texto="programadas para próximos ciclos" enlace="/consulta" /> : null}
+        <Ficha n={r.pendientes} texto="artículos pendientes de gestión" enlace={p.gestor ? '/gestion' : undefined} />
+        <Ficha n={r.por_aprobar} texto="cotizaciones por decidir" enlace={p.aprobadorCotizacion ? '/aprobaciones' : undefined} />
+        <Ficha n={r.atrasados} texto="compras atrasadas" />
+        <Ficha n={r.novedades_abiertas} texto="novedades abiertas" />
+      </div></section> : null}
+      {(p.almacen || p.gestor || p.consultaGlobal) ? <section className="tarjeta resumen-simple"><div className="seccion-cabecera"><div><span className="sobre-titulo">ALMACÉN</span><h2>Entradas y entregas</h2></div><Link to="/almacen">Abrir almacén →</Link></div><div className="tablero"><Ficha n={r.por_llegar} texto="compras por llegar" enlace="/almacen" /><Ficha n={r.en_almacen} texto="con saldo disponible" enlace="/almacen" /><Ficha n={r.pendientes_entrega} texto="pendientes de entrega" enlace="/almacen" /><Ficha n={r.entregados} texto="con entregas registradas" /></div></section> : null}
+    </>}
+
+    {veIndicadores ? <section className="tarjeta indicadores"><div className="seccion-cabecera"><div><span className="sobre-titulo">INDICADORES</span><h2>Vista de operación</h2><p className="texto-suave">Usa estas cifras para revisar el proceso, no para realizar acciones urgentes.</p></div></div>
+      <div className="filtros"><Campo etiqueta="Desde"><input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></Campo><Campo etiqueta="Hasta"><input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></Campo></div>
+      {!ind ? <Cargando /> : <><div className="tablero"><Ficha n={ind.solicitudes_enviadas} texto="solicitudes enviadas" /><div className="ficha"><b>{ind.anticipacion_promedio_dias ?? '—'}</b><span>días de anticipación promedio</span><small className="texto-suave">{ind.anticipacion_con_dato} con fecha requerida</small></div><div className="ficha"><b>{horasATexto(ind.horas_envio_aprobacion)}</b><span>envío → aprobación</span></div><div className="ficha"><b>{horasATexto(ind.horas_aprobacion_recepcion)}</b><span>aprobación → Compras</span></div><div className="ficha"><b>{horasATexto(ind.horas_recepcion_compra)}</b><span>Compras → compra</span></div><div className="ficha"><b>{ind.extraordinarias}</b><span>extraordinarias · {fmtMoneda(ind.extraordinarias_total_cop, 'COP')}</span></div></div>
+        {ind.extraordinarias_por_area.length > 0 ? <><h3>Extraordinarias por área</h3><div className="tabla-envoltura"><table className="tabla"><thead><tr><th>Área</th><th className="numero">Cantidad</th><th className="numero">Gasto COP</th></tr></thead><tbody>{ind.extraordinarias_por_area.map((x) => <tr key={x.area}><td>{x.area}</td><td className="numero">{x.n}</td><td className="numero">{fmtMoneda(x.total_cop, 'COP')}</td></tr>)}</tbody></table></div></> : null}
+        <h3>Gasto comprado por área y centro de costo</h3>{ind.gasto_por_area_cc.length === 0 ? <p className="texto-suave">Sin compras en el período.</p> : <div className="tabla-envoltura"><table className="tabla"><thead><tr><th>Área</th><th>Centro de costo</th><th>Moneda</th><th className="numero">Total</th></tr></thead><tbody>{ind.gasto_por_area_cc.map((g, i) => <tr key={i}><td>{g.area ?? 'Sin área'}</td><td>{g.cc ?? '—'}</td><td>{g.moneda}</td><td className="numero">{fmtMoneda(g.total, g.moneda)}</td></tr>)}</tbody></table></div>}
+        <p><Link to="/reportes">Ver el detalle en Reportes →</Link></p>
+      </>}
+    </section> : null}
+  </div>;
 }
