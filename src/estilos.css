@@ -446,3 +446,51 @@ input:focus, select:focus, textarea:focus { outline:0; border-color:#56866d; box
 
 .formulario-contenido { display:contents; }
 .formulario-progreso { font-size:.8rem; color:var(--tinta-suave); margin:0; }
+
+/* Pantallas orientadas a tareas: menos tablas primero, más claridad sobre el siguiente paso. */
+.bienvenida { display:flex; justify-content:space-between; align-items:flex-end; gap:1.5rem; padding:1.45rem 1.6rem; margin-bottom:1.25rem; border:1px solid #dce9df; border-radius:15px; background:radial-gradient(circle at 90% 10%,#dcefe1 0,transparent 30%),linear-gradient(120deg,#f8fcf9,#edf6ef); }
+.bienvenida h1 { margin:.1rem 0 .25rem; color:#1e5138; }
+.bienvenida p { margin:0; max-width:700px; color:#567363; font-size:.88rem; }
+.bienvenida-actualizacion { flex:0 0 auto; padding:.45rem .65rem; border-radius:999px; background:white; border:1px solid #d8e6db; color:#63776a; font-size:.72rem; white-space:nowrap; }
+.accion-destacada { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:1rem; padding:1.25rem 1.35rem; margin:1.1rem 0 1.45rem; border:1px solid #bdd9c7; border-radius:13px; background:#f7fcf8; box-shadow:0 5px 18px #194a3109; }
+.accion-destacada-icono { display:grid; place-items:center; width:40px; height:40px; border-radius:12px; background:#dfefe4; color:#1a6943; font-size:1.15rem; font-weight:800; }
+.accion-destacada h2 { margin:.1rem 0; color:#25563c; }
+.accion-destacada p { margin:.2rem 0 0; color:#5d7869; font-size:.84rem; }
+.acciones-rapidas { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:.8rem; margin-bottom:1.45rem; }
+.accion-rapida { display:flex; gap:.8rem; min-height:145px; padding:1.05rem; border:1px solid #dbe7de; border-radius:12px; background:white; color:inherit; text-decoration:none; box-shadow:0 2px 7px #173d2606; transition:transform .15s,box-shadow .15s,border-color .15s; }
+.accion-rapida:hover { transform:translateY(-2px); border-color:#9cbea6; box-shadow:0 7px 18px #173d2612; }
+.accion-icono { display:grid; place-items:center; flex:0 0 33px; height:33px; border-radius:10px; background:#edf5ee; color:#226143; font-weight:800; }
+.accion-contenido { display:flex; flex:1; min-width:0; flex-direction:column; }
+.accion-contenido strong { display:flex; align-items:center; justify-content:space-between; gap:.6rem; color:#28543e; font-size:.87rem; line-height:1.35; }
+.accion-contenido strong em { display:grid; place-items:center; min-width:23px; height:23px; padding:0 .35rem; border-radius:999px; background:#f7e8c5; color:#76530d; font-size:.7rem; font-style:normal; }
+.accion-contenido > span { margin-top:.38rem; color:#6b7b71; font-size:.76rem; line-height:1.5; }
+.accion-contenido small { margin-top:auto; padding-top:.7rem; color:#246246; font-size:.74rem; font-weight:700; }
+.guia-solicitud { background:#fcfefc; }
+.pasos-solicitud { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; padding:0; margin:0; list-style:none; }
+.pasos-solicitud li { display:flex; gap:.75rem; padding:.9rem; border-top:3px solid #d5e7d9; background:#f7faf8; border-radius:9px; }
+.pasos-solicitud li > span { display:grid; place-items:center; width:28px; height:28px; flex:0 0 28px; border-radius:50%; color:#fff; background:#2f7550; font-size:.73rem; font-weight:700; }
+.pasos-solicitud b { color:#315440; font-size:.84rem; }
+.pasos-solicitud p { margin:.3rem 0 0; color:#6b7d72; font-size:.75rem; line-height:1.45; }
+.resumen-simple .tablero { margin:0; }
+.tablero .ficha { min-height:108px; text-align:left; }
+.tablero .ficha > a { display:flex; flex-direction:column; height:100%; color:inherit; text-decoration:none; }
+.tablero .ficha span { display:block; margin-top:.25rem; line-height:1.35; }
+.tablero .ficha small { display:block; margin-top:.3rem; }
+.indicadores { margin-top:1.2rem; }
+.inicio-solicitud { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1.2rem 1.3rem; margin:1.2rem 0; border:1px solid #bcd8c5; border-radius:13px; background:linear-gradient(110deg,#eff8f1,#fbfdfb); }
+.inicio-solicitud h2 { margin:.15rem 0; color:#23553a; }
+.inicio-solicitud p { margin:.3rem 0 0; color:#61786a; font-size:.84rem; }
+.inicio-solicitud button { flex:0 0 auto; }
+.solicitudes-cabecera { margin-top:1.55rem; }
+.pestanas-solicitudes { padding:.55rem; border:1px solid #e0eae2; border-radius:10px; background:#fbfdfb; }
+.pestanas-solicitudes button { min-height:36px; font-size:.75rem; }
+.aviso-devolucion { display:flex; align-items:center; gap:.8rem; padding:1rem 1.1rem; margin:1rem 0; border:1px solid #edc8ba; border-radius:11px; background:#fff9f7; }
+.aviso-devolucion > span { display:grid; place-items:center; width:31px; height:31px; flex:0 0 31px; border-radius:50%; background:#fce8e0; color:#a74d36; font-weight:800; }
+.aviso-devolucion div { flex:1; }
+.aviso-devolucion b { color:#8c422e; font-size:.85rem; }
+.aviso-devolucion p { margin:.2rem 0 0; color:#7d655d; font-size:.76rem; }
+.pasos-formulario { display:flex; flex-wrap:wrap; gap:.35rem; padding-bottom:.85rem; border-bottom:1px solid #e4ece6; color:#7a8c80; font-size:.72rem; font-weight:650; }
+.pasos-formulario span { padding:.27rem .45rem; border-radius:999px; background:#f0f4f1; }
+.pasos-formulario span.actual { color:#205b3c; background:#e2f0e6; }
+@media(max-width:800px){.bienvenida,.accion-destacada,.inicio-solicitud{align-items:flex-start;flex-direction:column}.accion-destacada{display:flex}.accion-destacada .enlace-boton,.inicio-solicitud button{width:100%}.pasos-solicitud{grid-template-columns:1fr}.bienvenida-actualizacion{white-space:normal}.accion-rapida:hover{transform:none}}
+@media(max-width:640px){.bienvenida{padding:1.15rem}.acciones-rapidas{grid-template-columns:1fr}.accion-destacada{padding:1rem}.accion-destacada-icono{width:34px;height:34px}.pestanas-solicitudes{gap:.35rem}.pestanas-solicitudes button{flex:1 1 125px}.aviso-devolucion{align-items:flex-start;flex-wrap:wrap}.aviso-devolucion button{width:100%}.pasos-formulario{gap:.25rem}.tablero .ficha{min-height:100px}}

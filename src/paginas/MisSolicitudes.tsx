@@ -132,14 +132,18 @@ export function MisSolicitudes() {
 
   return (
     <div className="contenido">
-      <h1>Mis solicitudes</h1>
+      <span className="sobre-titulo">COMPRAS · MI ÁREA</span>
+      <h1>Solicitudes de mi área</h1>
+      <p className="texto-suave">Crea un borrador, agrega los artículos y envíalo solo cuando esté completo. Primero lo revisa tu jefe y después llega a Compras.</p>
+      <section className="inicio-solicitud">
+        <div><span className="sobre-titulo">NUEVA NECESIDAD</span><h2>¿Qué necesitas comprar?</h2><p>Empieza con lo básico. Tus datos no se pierden y puedes continuar más tarde.</p></div>
+        <button type="button" className="boton-primario" onClick={() => { setErrores({}); setErrorAlta(null); setAbierto(true); }}>Crear una solicitud</button>
+      </section>
       {devueltas > 0 ? (
-        <p className="mensaje mensaje-error">
-          Tienes {devueltas} solicitud(es) devuelta(s) para corrección.{' '}
-          <button type="button" className="enlace" onClick={() => { setPagina(1); setBandeja('devueltas'); }}>Verlas</button>
-        </p>
+        <section className="aviso-devolucion"><span aria-hidden="true">↩</span><div><b>Tienes {devueltas} solicitud(es) para corregir</b><p>Abre cada una, revisa el comentario del jefe y vuelve a enviarla cuando esté lista.</p></div><button type="button" className="boton-secundario" onClick={() => { setPagina(1); setBandeja('devueltas'); }}>Ver para corregir</button></section>
       ) : null}
-      <div className="pestanas" role="tablist">
+      <div className="seccion-cabecera solicitudes-cabecera"><div><span className="sobre-titulo">SEGUIMIENTO</span><h2>Mis solicitudes</h2></div><span className="insignia-suave">{total} en esta vista</span></div>
+      <div className="pestanas pestanas-solicitudes" role="tablist" aria-label="Estado de las solicitudes">
         {([['todas', 'Todas'], ['borradores', 'Borradores'], ['devueltas', `Devueltas${devueltas ? ` (${devueltas})` : ''}`],
            ['aprobacion', 'En aprobación / programadas'], ['compras', 'En Compras'], ['finalizadas', 'Rechazadas / canceladas']] as Array<[Bandeja, string]>)
           .map(([k, t]) => (
@@ -154,11 +158,10 @@ export function MisSolicitudes() {
         </Campo>
         <button type="button" className="boton-secundario" onClick={() => void cargar()}>Actualizar</button>
         <button type="button" className="boton-secundario" onClick={exportar} disabled={!filas || filas.length === 0}>Exportar CSV</button>
-        <button type="button" className="boton-primario" onClick={() => { setErrores({}); setErrorAlta(null); setAbierto(true); }}>+ Nueva solicitud</button>
       </div>
       <MensajeError texto={error} flotante />
       {!filas ? <Cargando /> : filas.length === 0 ? (
-        <div className="tarjeta"><p>No hay solicitudes en esta bandeja. Crea una con “+ Nueva solicitud”: puedes guardarla como borrador y enviarla cuando esté lista.</p></div>
+        <div className="estado-vacio"><span className="estado-icono" aria-hidden="true">+</span><h2>No hay solicitudes en esta vista</h2><p>Puedes crear una como borrador. Nadie la verá hasta que la envíes a aprobación.</p><button type="button" className="boton-primario" onClick={() => { setErrores({}); setErrorAlta(null); setAbierto(true); }}>Crear mi primera solicitud</button></div>
       ) : (
         <div className="tabla-envoltura">
           <table className="tabla">
@@ -194,9 +197,10 @@ export function MisSolicitudes() {
       )}
       <Paginador pagina={pagina} porPagina={POR_PAGINA} total={total} alCambiar={setPagina} />
 
-      <Modal titulo="Nueva solicitud (se guarda como borrador)" abierto={abierto} alCerrar={() => setAbierto(false)}>
+      <Modal titulo="Nueva solicitud" abierto={abierto} alCerrar={() => setAbierto(false)}>
         <Formulario className="formulario" onSubmit={crear} noValidate>
-          <p className="leyenda-campos">Los campos marcados con <span className="marca-obligatorio">* obligatorio</span> son necesarios. Guardar el borrador NO lo envía a nadie.</p>
+          <div className="pasos-formulario" aria-label="Pasos para crear una solicitud"><span className="actual">1. Datos básicos</span><span>2. Fecha de compra</span><span>3. Agregar artículos</span></div>
+          <p className="leyenda-campos">En este paso solo crearás un borrador. Los campos con <span className="marca-obligatorio">* obligatorio</span> son necesarios y no se enviará nada todavía.</p>
           <div className="fila-campos">
             <Campo etiqueta="Área" requerido error={errores.area} ayuda="Es el área a la que estás vinculado; la aprueba su jefe.">
               <input value={areaNombre ?? 'Sin área asignada'} readOnly />
@@ -244,7 +248,7 @@ export function MisSolicitudes() {
           <div className="modal-acciones">
             <button type="button" className="boton-secundario" onClick={() => setAbierto(false)}>Cancelar</button>
             <button type="submit" className="boton-primario" disabled={creando}>
-              {creando ? 'Creando…' : 'Crear borrador y agregar artículos'}
+              {creando ? 'Creando borrador…' : 'Continuar para agregar artículos'}
             </button>
           </div>
         </Formulario>

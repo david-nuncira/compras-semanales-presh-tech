@@ -6,4 +6,55 @@
 .organigrama-grupo li { margin:.6rem 0; }
 .buzon-aviso { padding:1.2rem 0;border-bottom:1px solid #e3eae5; }
 .buzon-aviso.no-leida { border-left:4px solid #2b7952;padding-left:1rem; }
+.panel-prioridad { display:flex; align-items:center; justify-content:space-between; gap:1.5rem; padding:1.35rem 1.5rem; margin:1.2rem 0; border:1px solid #bfd8c7; border-radius:14px; background:linear-gradient(120deg,#edf7f0,#fbfdfb); box-shadow:0 8px 24px #17462e0a; }
+.panel-prioridad h2 { margin:.15rem 0; color:#194d35; }
+.panel-prioridad p { max-width:760px; margin:.35rem 0 0; color:#527160; font-size:.88rem; }
+.panel-prioridad-accion { flex:0 0 auto; }
+.enlace-boton { display:inline-flex; align-items:center; justify-content:center; text-decoration:none; min-height:40px; }
+.resumen-organizacion { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; margin:0 0 1.2rem; }
+.resumen-organizacion article { min-height:104px; padding:1rem; border-radius:12px; border:1px solid #dce8df; background:white; box-shadow:0 2px 7px #17462e08; }
+.resumen-organizacion article:nth-child(2) { border-top:3px solid #47825d; }
+.resumen-organizacion article:nth-child(3) { border-top:3px solid #b4863c; }
+.resumen-organizacion article:nth-child(4) { border-top:3px solid #607eaa; }
+.resumen-organizacion b { display:block; color:#1e6240; font-size:1.65rem; letter-spacing:-.05em; line-height:1.15; }
+.resumen-organizacion span { display:block; margin-top:.35rem; color:#6b7d72; font-size:.76rem; line-height:1.35; }
+.flujo-admin { background:#fcfefc; }
+.pasos-admin { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; padding:0; margin:0; list-style:none; }
+.pasos-admin li { display:flex; gap:.75rem; padding:1rem; border:1px solid #dce8df; border-radius:10px; background:white; }
+.paso-numero { display:grid; place-items:center; flex:0 0 29px; height:29px; border-radius:50%; background:#e3f1e7; color:#1c6440; font-size:.8rem; font-weight:750; }
+.pasos-admin b { color:#244f39; font-size:.9rem; }
+.pasos-admin p { margin:.35rem 0 .65rem; color:#6a7d71; font-size:.78rem; line-height:1.5; }
+.pasos-admin a { font-size:.8rem; }
+.pasos-admin button { min-height:36px; font-size:.75rem; }
+.catalogo-personas { margin-top:1.2rem; }
+.filtros-catalogo { align-items:flex-end; padding:.9rem; border:1px solid #e4ece6; border-radius:10px; background:#f8fbf9; }
+.filtros-catalogo > .campo { flex:1 1 230px; }
+.filtros-catalogo .acciones-fila { gap:.35rem; }
+.filtros-catalogo .acciones-fila button { min-height:35px; font-size:.74rem; padding:.4rem .65rem; }
+.lista-personas { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:.75rem; margin-top:1rem; }
+.persona-catalogo { display:flex; gap:.8rem; padding:1rem; border:1px solid #dce6df; border-radius:11px; background:white; min-width:0; }
+.persona-catalogo.vinculada { border-left:4px solid #4d8a62; }
+.persona-iniciales { display:grid; place-items:center; width:38px; height:38px; flex:0 0 38px; border-radius:12px; background:#e8f3ea; color:#255d3e; font-size:.75rem; font-weight:750; }
+.persona-contenido { min-width:0; flex:1; }
+.persona-titulo { display:flex; align-items:flex-start; justify-content:space-between; gap:.6rem; }
+.persona-titulo h3 { margin:0; color:#244e38; font-size:.93rem; }
+.persona-titulo p { margin:.15rem 0 0; color:#6d7e73; font-size:.76rem; line-height:1.4; }
+.persona-titulo .insignia { flex:0 0 auto; font-size:.65rem; }
+.estado-vinculada { color:#266c45; border-color:#a7cdb2; background:#edf8ef; }
+.estado-pendiente { color:#876321; border-color:#e0c78f; background:#fff8e8; }
+.persona-datos { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; margin:.8rem 0 .6rem; }
+.persona-datos div { min-width:0; }
+.persona-datos dt { color:#7a8b80; font-size:.63rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.persona-datos dd { margin:.18rem 0 0; color:#425a4d; font-size:.72rem; line-height:1.38; overflow-wrap:anywhere; }
+.etiqueta-jefatura { display:inline-block; padding:.25rem .45rem; border-radius:6px; color:#245d3d; background:#e6f2e9; font-size:.69rem; font-weight:650; line-height:1.35; }
+.persona-ayuda { margin:.55rem 0 0; color:#8a6a31; font-size:.72rem; line-height:1.42; }
+.configuracion-avanzada { margin:1.2rem 0; border:1px solid #dce7df; border-radius:12px; background:#fdfefd; }
+.configuracion-avanzada summary { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.2rem; cursor:pointer; color:#29533e; font-weight:700; }
+.configuracion-avanzada summary small { color:#728278; font-size:.73rem; font-weight:500; }
+.configuracion-avanzada[open] summary { border-bottom:1px solid #e0eae2; }
+.configuracion-avanzada-contenido { padding:1.2rem; }
+.configuracion-avanzada-contenido .tarjeta:last-child { margin-bottom:0; }
+.correo-organizacion { background:#fbfdfb; }
+@media(max-width:900px){.resumen-organizacion{grid-template-columns:repeat(2,minmax(0,1fr));}.pasos-admin{grid-template-columns:1fr;}.panel-prioridad{align-items:flex-start;flex-direction:column;}.persona-datos{grid-template-columns:1fr 1fr;}}
 @media(max-width:650px){.cabecera-cuenta .campana span:first-child{display:none}.cabecera-cuenta .campana{padding:.4rem;font-size:.7rem}.cabecera-cuenta .usuario{display:none}}
+@media(max-width:650px){.resumen-organizacion{grid-template-columns:1fr 1fr;gap:.55rem}.resumen-organizacion article{min-height:90px;padding:.8rem}.lista-personas{grid-template-columns:1fr}.persona-datos{grid-template-columns:1fr;gap:.38rem}.persona-titulo{display:block}.persona-titulo .insignia{display:inline-block;margin-top:.5rem}.configuracion-avanzada summary{align-items:flex-start;flex-direction:column;gap:.25rem}.configuracion-avanzada-contenido{padding:.8rem}.filtros-catalogo{padding:.75rem}.panel-prioridad{padding:1.1rem}.panel-prioridad-accion,.panel-prioridad-accion .enlace-boton{width:100%;}}
