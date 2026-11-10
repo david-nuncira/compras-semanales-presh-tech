@@ -136,13 +136,15 @@ export function MisSolicitudes() {
       <h1>Solicitudes de mi área</h1>
       <p className="texto-suave">Crea un borrador, agrega los artículos y envíalo solo cuando esté completo. Primero lo revisa tu jefe y después llega a Compras.</p>
       <section className="inicio-solicitud">
-        <div><span className="sobre-titulo">NUEVA NECESIDAD</span><h2>¿Qué necesitas comprar?</h2><p>Empieza con lo básico. Tus datos no se pierden y puedes continuar más tarde.</p></div>
-        <button type="button" className="boton-primario" onClick={() => { setErrores({}); setErrorAlta(null); setAbierto(true); }}>Crear una solicitud</button>
+        <div><span className="sobre-titulo">NUEVA NECESIDAD</span><h2>¿Qué necesitas comprar?</h2><p>Empieza con lo básico. Tus datos no se pierden y puedes continuar más tarde.</p>
+          <ol className="mini-ruta" aria-label="Pasos para crear una solicitud"><li><span>1</span><div><b>Crea el borrador</b><small>Aún es privado.</small></div></li><li><span>2</span><div><b>Agrega los artículos</b><small>Con cantidades y detalles.</small></div></li><li><span>3</span><div><b>Envía a tu jefe</b><small>Compras continúa después.</small></div></li></ol>
+        </div>
+        <button type="button" className="boton-primario boton-inicio" onClick={() => { setErrores({}); setErrorAlta(null); setAbierto(true); }}><span aria-hidden="true">+</span> Empezar mi solicitud</button>
       </section>
       {devueltas > 0 ? (
         <section className="aviso-devolucion"><span aria-hidden="true">↩</span><div><b>Tienes {devueltas} solicitud(es) para corregir</b><p>Abre cada una, revisa el comentario del jefe y vuelve a enviarla cuando esté lista.</p></div><button type="button" className="boton-secundario" onClick={() => { setPagina(1); setBandeja('devueltas'); }}>Ver para corregir</button></section>
       ) : null}
-      <div className="seccion-cabecera solicitudes-cabecera"><div><span className="sobre-titulo">SEGUIMIENTO</span><h2>Mis solicitudes</h2></div><span className="insignia-suave">{total} en esta vista</span></div>
+      <div className="seccion-cabecera solicitudes-cabecera"><div><span className="sobre-titulo">SEGUIMIENTO</span><h2>Mis solicitudes</h2><p className="texto-suave">Elige una pestaña para encontrarla más rápido. Si una solicitud vuelve a ti, aparecerá en “Devueltas”.</p></div><span className="insignia-suave">{total} en esta vista</span></div>
       <div className="pestanas pestanas-solicitudes" role="tablist" aria-label="Estado de las solicitudes">
         {([['todas', 'Todas'], ['borradores', 'Borradores'], ['devueltas', `Devueltas${devueltas ? ` (${devueltas})` : ''}`],
            ['aprobacion', 'En aprobación / programadas'], ['compras', 'En Compras'], ['finalizadas', 'Rechazadas / canceladas']] as Array<[Bandeja, string]>)
