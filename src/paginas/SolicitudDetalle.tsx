@@ -41,6 +41,34 @@ function mensajeEnvio(r: { aprobador?: string; recepcion_prevista?: string; cier
   return `${base} Pasará a Compras en cuanto se apruebe.`;
 }
 
+type ResumenSiguientePaso = { icono: string; etiqueta: string; titulo: string; descripcion: string; tono: string };
+
+/** Traduce el estado técnico a una instrucción concreta para la persona usuaria. */
+function siguientePasoSolicitud(s: VSolicitud, esDueno: boolean, editable: boolean, articulosActivos: number, problema?: string | null): ResumenSiguientePaso {
+  if (editable && articulosActivos === 0) {
+    return { icono: '1', etiqueta: 'PRIMER PASO', titulo: 'Agrega lo que necesitas', descripcion: 'Empieza con el primer artículo. El borrador todavía es privado y puedes corregirlo cuando quieras.', tono: 'inicio' };
+  }
+  if (editable && problema) {
+    return { icono: '!', etiqueta: 'ANTES DE ENVIAR', titulo: 'Falta una configuración por completar', descripcion: problema, tono: 'atencion' };
+  }
+  if (editable) {
+    return { icono: '2', etiqueta: 'SIGUIENTE PASO', titulo: 'Revisa y envía a tu jefe', descripcion: 'Cuando estés conforme con los artículos, envíala. Tu jefe la revisará antes de que llegue a Compras.', tono: 'listo' };
+  }
+  if (s.estado === 'pendiente_aprobacion' || s.estado === 'programada') {
+    return { icono: '✓', etiqueta: 'EN REVISIÓN', titulo: 'Tu jefe está revisando la solicitud', descripcion: 'No necesitas hacer nada por ahora. Te avisaremos cuando cambie el estado.', tono: 'revision' };
+  }
+  if (s.estado === 'recibida_compras' || s.estado === 'enviada') {
+    return { icono: '→', etiqueta: 'EN COMPRAS', titulo: 'Compras continúa con el proceso', descripcion: 'El equipo revisará las opciones de compra y podrás ver el avance desde esta misma pantalla.', tono: 'compras' };
+  }
+  if (s.estado === 'en_correccion' && esDueno) {
+    return { icono: '↩', etiqueta: 'REQUIERE TU ATENCIÓN', titulo: 'Corrige y vuelve a enviar', descripcion: 'Revisa el comentario, ajusta lo necesario y envíala de nuevo. El historial se conserva.', tono: 'atencion' };
+  }
+  if (s.estado === 'rechazada' || s.estado === 'cancelada') {
+    return { icono: 'i', etiqueta: 'SOLICITUD CERRADA', titulo: 'Esta solicitud no continúa', descripcion: 'Puedes revisar el motivo en el historial. Si necesitas algo distinto, crea una nueva solicitud.', tono: 'cerrada' };
+  }
+  return { icono: 'i', etiqueta: 'SEGUIMIENTO', titulo: 'Consulta el avance aquí', descripcion: 'Esta pantalla reúne la información, los documentos y el historial de la solicitud.', tono: 'neutro' };
+}
+
 export function SolicitudDetalle() {
   const { id } = useParams<{ id: string }>();
   const navegar = useNavigate();
@@ -118,6 +146,8 @@ export function SolicitudDetalle() {
   }
   if (!sol) return <div className="contenido"><Cargando /></div>;
   const s = sol;
+  const articulosActivos = articulos.filter((a) => a.etapa !== 'cancelado').length;
+  const siguiente = siguientePasoSolicitud(s, esDueno, editable, articulosActivos, estimacion?.problema);
 
   async function accion(fn: () => Promise<unknown>, textoOk: string) {
     setResultado(null);
@@ -202,13 +232,24 @@ export function SolicitudDetalle() {
 
   return (
     <div className="contenido">
-      <div className="acciones-fila">
-        <h1 style={{ margin: 0 }}>{s.numero}</h1>
-        <InsigniaSolicitud estado={s.estado} />
-        {s.es_extraordinaria ? <span className="insignia insignia-extra">Extraordinaria</span> : null}
-        {s.flujo === 'anterior' ? <span className="insignia-suave">Flujo anterior: sin aprobación previa registrada</span> : null}
-        {s.origen === 'importacion_csv' ? <span className="insignia-suave">Origen: histórico CSV</span> : null}
-      </div>
+      <section className={`solicitud-heroe solicitud-heroe-${siguiente.tono}`} aria-label="Resumen de la solicitud">
+        <div className="solicitud-identidad">
+          <button type="button" className="volver-contexto" onClick={() => navegar(-1)}>← Volver</button>
+          <span className="sobre-titulo">SOLICITUD DE COMPRA</span>
+          <div className="acciones-fila solicitud-titulo"><h1>{s.numero}</h1><InsigniaSolicitud estado={s.estado} /></div>
+          <div className="solicitud-etiquetas">
+            {s.es_extraordinaria ? <span className="insignia insignia-extra">Extraordinaria</span> : null}
+            {s.flujo === 'anterior' ? <span className="insignia-suave">Flujo anterior</span> : null}
+            {s.origen === 'importacion_csv' ? <span className="insignia-suave">Registro histórico</span> : null}
+          </div>
+        </div>
+        <div className="siguiente-paso">
+          <span className="siguiente-paso-icono" aria-hidden="true">{siguiente.icono}</span>
+          <div><span className="sobre-titulo">{siguiente.etiqueta}</span><h2>{siguiente.titulo}</h2><p>{siguiente.descripcion}</p></div>
+          {esDueno && editable && articulosActivos === 0 ? <button type="button" className="boton-primario" onClick={() => { setErroresArt({}); setErrorArt(null); setModalArt({ ...ARTICULO_VACIO }); }}>Agregar primer artículo</button> : null}
+          {esDueno && editable && articulosActivos > 0 ? <button type="button" className="boton-primario" onClick={() => void enviar()} disabled={enviando || !!estimacion?.problema}>{enviando ? 'Enviando…' : s.estado === 'borrador' ? 'Enviar a mi jefe' : 'Reenviar a mi jefe'}</button> : null}
+        </div>
+      </section>
       <LineaRecorrido estado={s.estado} resumen={s.resumen_etapas} />
 
       {s.estado === 'en_correccion' ? (
@@ -249,7 +290,13 @@ export function SolicitudDetalle() {
 
       {/* ---------- Acciones del solicitante (con resultado junto a ellas) ---------- */}
       {esDueno ? (
-        <div className="tarjeta">
+        <section className="tarjeta zona-accion-solicitud">
+          <div className="zona-accion-cabecera"><div><span className="sobre-titulo">TU LISTA DE PASOS</span><h2>{editable ? 'Completa la solicitud sin perderte' : 'Acciones disponibles'}</h2></div>{editable ? <span className="insignia-suave">{articulosActivos} artículo{articulosActivos === 1 ? '' : 's'} agregado{articulosActivos === 1 ? '' : 's'}</span> : null}</div>
+          {editable ? <ol className="checklist-solicitud" aria-label="Pasos del borrador">
+            <li className={articulosActivos > 0 ? 'completo' : 'actual'}><span>{articulosActivos > 0 ? '✓' : '1'}</span><div><b>Agrega los artículos</b><small>{articulosActivos > 0 ? 'Ya puedes revisarlos o agregar más.' : 'Indica nombre, características y cantidad.'}</small></div></li>
+            <li className={articulosActivos > 0 ? 'actual' : ''}><span>2</span><div><b>Revísalos con calma</b><small>Antes de enviarla puedes editar, eliminar o adjuntar referencias.</small></div></li>
+            <li className={articulosActivos > 0 && !estimacion?.problema ? 'actual' : ''}><span>3</span><div><b>Envíala a aprobación</b><small>Tu jefe la verá primero; Compras continúa después.</small></div></li>
+          </ol> : null}
           <div className="acciones-fila">
             {editable ? (
               <>
@@ -301,7 +348,7 @@ export function SolicitudDetalle() {
             ? <MensajeExito texto={resultado.texto} />
             : <MensajeError texto={resultado.texto} />) : null}
           <MensajeError texto={error} flotante />
-        </div>
+        </section>
       ) : (
         <>
           {resultado ? (resultado.ok ? <MensajeExito texto={resultado.texto} flotante /> : <MensajeError texto={resultado.texto} flotante />) : null}

@@ -106,11 +106,13 @@ export function AprobacionSolicitudes() {
 
   return (
     <div className="contenido">
-      <h1>Pendientes de mi aprobación</h1>
-      <p className="texto-suave">
-        Solicitudes de tu área (o de la ruta superior que tienes asignada). Ninguna llega a Compras sin tu
-        decisión. No puedes decidir tus propias solicitudes. Devolver y rechazar exigen un motivo que verá el solicitante.
-      </p>
+      <section className="cabecera-aprobaciones">
+        <div><span className="sobre-titulo">APROBACIÓN DE JEFATURA</span><h1>Ayuda a que las compras avancen</h1>
+          <p>Revisa la necesidad, verifica los artículos y decide. Ninguna solicitud llega a Compras sin tu aprobación.</p>
+          <ol className="mini-ruta mini-ruta-aprobacion" aria-label="Cómo aprobar una solicitud"><li><span>1</span><div><b>Revisa</b><small>La necesidad y los artículos.</small></div></li><li><span>2</span><div><b>Decide</b><small>Aprueba, devuelve o rechaza.</small></div></li><li><span>3</span><div><b>Deja un comentario</b><small>Si necesita una corrección.</small></div></li></ol>
+        </div>
+        <div className="contador-aprobaciones" aria-label="Solicitudes pendientes"><span>Por revisar ahora</span><b>{pendientes?.length ?? '—'}</b><small>{pendientes?.length === 1 ? 'solicitud espera tu decisión' : 'solicitudes esperan tu decisión'}</small></div>
+      </section>
       <MensajeError texto={error} flotante />
       {ultimos.map(([k, r]) => r.ok ? <MensajeExito key={k} texto={r.texto} flotante /> : <MensajeError key={k} texto={r.texto} flotante />)}
 
@@ -133,10 +135,9 @@ export function AprobacionSolicitudes() {
         const arts = articulos[ap.solicitud_id] ?? [];
         const r = resultado[ap.solicitud_id];
         return (
-          <div className="tarjeta" key={ap.aprobacion_id}>
-            <div className="acciones-fila">
-              <h3 style={{ margin: 0 }}>{ap.numero}</h3>
-              {ap.es_extraordinaria ? <span className="insignia insignia-extra">Extraordinaria</span> : null}
+          <div className="tarjeta tarjeta-aprobacion" key={ap.aprobacion_id}>
+            <div className="cabecera-tarjeta-aprobacion"><div><span className="sobre-titulo">SOLICITUD POR REVISAR</span><div className="acciones-fila"><h3 style={{ margin: 0 }}>{ap.numero}</h3>{ap.es_extraordinaria ? <span className="insignia insignia-extra">Extraordinaria</span> : null}</div></div><span className="estado-decision">Tu decisión habilita el siguiente paso</span></div>
+            <div className="solicitud-etiquetas">
               {ap.ruta === 'ruta_superior' ? <span className="insignia-suave">Ruta superior (solicitud del jefe del área)</span> : null}
               {ap.version > 1 ? <span className="insignia-suave">Versión {ap.version} (tras corrección)</span> : null}
             </div>
@@ -163,7 +164,7 @@ export function AprobacionSolicitudes() {
                 </tbody>
               </table>
             </div>
-            <div className="acciones-fila" style={{ marginTop: '0.5rem' }}>
+            <div className="acciones-fila acciones-decision">
               <button type="button" className="boton-primario" onClick={() => { setMError(null); setDecision({ ap, tipo: 'aprobar', motivo: '' }); }}>Aprobar…</button>
               <button type="button" className="boton-secundario" onClick={() => { setMError(null); setDecision({ ap, tipo: 'devolver', motivo: '' }); }}>Devolver para corrección…</button>
               <button type="button" className="boton-peligro" onClick={() => { setMError(null); setDecision({ ap, tipo: 'rechazar', motivo: '' }); }}>Rechazar…</button>
