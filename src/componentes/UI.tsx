@@ -487,6 +487,35 @@ export function IndicadorGuardado({ cuando, guardando }: { cuando: number | null
   return <span className="texto-suave" role="status"><Icono nombre="check" tam={14} /> Guardado {textoHace(cuando, ahora)}</span>;
 }
 
+/** Ícono «i»: al pulsarlo (o con Enter/Espacio) explica qué mide un indicador. Esc lo cierra. */
+export function Ayuda({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
+  const [abierto, setAbierto] = useState(false);
+  const id = useId();
+  return (
+    <span className="ayuda">
+      <button type="button" className="ayuda-boton" aria-expanded={abierto} aria-controls={abierto ? id : undefined}
+        aria-label={`¿Qué mide «${etiqueta}»?`} onClick={() => setAbierto(!abierto)}
+        onKeyDown={(e) => { if (e.key === 'Escape') setAbierto(false); }}>
+        <Icono nombre="info" tam={16} />
+      </button>
+      {abierto ? <span id={id} role="note" className="ayuda-texto">{children}</span> : null}
+    </span>
+  );
+}
+
+/** Ficha de un indicador: valor grande, título y el ícono «i» con su explicación. */
+export function Indicador({ titulo, valor, ayuda, detalle }: {
+  titulo: string; valor: ReactNode; ayuda: ReactNode; detalle?: ReactNode;
+}) {
+  return (
+    <div className="indicador">
+      <div className="indicador-titulo"><span>{titulo}</span><Ayuda etiqueta={titulo}>{ayuda}</Ayuda></div>
+      <div className="indicador-valor">{valor}</div>
+      {detalle ? <div className="texto-suave">{detalle}</div> : null}
+    </div>
+  );
+}
+
 /* ============================================================
    Pestañas, tabla de datos y paginación
    ============================================================ */

@@ -365,7 +365,11 @@ export function SolicitudDetalle() {
         </div>
       ) : null}
 
-      <h2>Artículos ({articulos.length})</h2>
+      <div className="acciones-fila" style={{ justifyContent: 'space-between' }}>
+        <h2>Artículos ({articulos.length})</h2>
+        {(permisos.gestor || permisos.consultaGlobal || permisos.aprobadorCotizacion) && s.recibida_compras_en
+          ? <Link className="boton-secundario enlace-boton" to={`/solicitudes/${s.id}/cotizaciones`}>Ver matriz de cotizaciones</Link> : null}
+      </div>
       {articulos.length > 0 ? (
       <div className="tabla-envoltura" tabIndex={0} role="region" aria-label="Artículos de la solicitud">
       <table className="tabla tabla-datos">

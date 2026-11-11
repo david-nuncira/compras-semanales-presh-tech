@@ -160,6 +160,7 @@ export function GestionCompras() {
     { clave: 'solicitud', titulo: 'Solicitud', ordenable: true, render: (x) => (
       <>
         <Link to={`/solicitudes/${x.solicitud_id}`}>{x.solicitud_numero}</Link>
+        <div><Link to={`/solicitudes/${x.solicitud_id}/cotizaciones`} className="texto-suave">Matriz</Link></div>
         {x.es_extraordinaria ? <div><span className="insignia insignia-extra">Extraordinaria</span></div> : null}
         {x.flujo === 'anterior' ? <div className="texto-suave">flujo anterior</div> : null}
       </>
