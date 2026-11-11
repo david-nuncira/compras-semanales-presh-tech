@@ -43,6 +43,6 @@ Ninguna nueva. Gráficos en SVG propio.
 Historial por etapa con responsable; contenido de versiones anteriores; editar datos generales de un borrador; indicador de entregas del solicitante; centro de costo destino por artículo; aprobación de la matriz completa; filtros de área/centro de costo en `fn_indicadores` y `fn_resumen_tablero`; importes estimado/comprometido/ejecutado calculados en servidor; aprobación múltiple.
 
 ## Pendiente del frontend
-`window.prompt` al renombrar en `AdminCatalogos`; `window.confirm` en `AdminRecuperacion` (protegida); filtros en URL en el resto de listas.
+`window.confirm` en `AdminRecuperacion` (protegida); filtros en URL en el resto de listas. (El `prompt` de renombrar en `AdminCatalogos` ya se reemplazó por un diálogo.)
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

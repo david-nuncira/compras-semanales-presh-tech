@@ -3,16 +3,11 @@ import { Link } from 'react-router-dom';
 import { supabase, limpiarError } from '../supabase.ts';
 import { useCatalogos } from '../datos.ts';
 import { usePermisos } from '../permisos.ts';
-import { Campo, MensajeError, MensajeExito, Cargando } from '../componentes/UI.tsx';
+import { Boton, Campo, MensajeError, MensajeExito, Cargando, Modal } from '../componentes/UI.tsx';
 import { AdminNav } from '../componentes/AdminNav.tsx';
 
-/** Pide un texto nuevo con un cuadro simple (renombrar sin perder historia). */
-function pedirTexto(pregunta: string, actual: string): string | null {
-  const v = window.prompt(pregunta, actual);
-  if (v === null) return null;
-  const t = v.trim();
-  return t.length >= 2 && t !== actual ? t : null;
-}
+/** Renombrar sin perder historia: se pide el nombre nuevo en un diálogo accesible. */
+interface Renombrar { pregunta: string; actual: string; aplicar: (nuevo: string) => void }
 
 /**
  * Catálogos administrables: áreas, centros de costo y proveedores.
@@ -27,6 +22,9 @@ export function AdminCatalogos() {
   const [nArea, setNArea] = useState('');
   const [nCCCodigo, setNCCCodigo] = useState('');
   const [nCCNombre, setNCCNombre] = useState('');
+  const [renombrar, setRenombrar] = useState<Renombrar | null>(null);
+  const [nombreNuevo, setNombreNuevo] = useState('');
+  const abrirRenombrar = (r: Renombrar) => { setNombreNuevo(r.actual); setRenombrar(r); };
   const [nProv, setNProv] = useState({ nombre: '', identificacion: '', contacto: '', telefono: '', correo: '' });
 
   async function ejecutar(fn: () => PromiseLike<{ error: { message: string } | null }>, msj: string) {
@@ -68,8 +66,8 @@ export function AdminCatalogos() {
             <li key={u.id}>
               {u.nombre}{u.abreviatura ? ` (${u.abreviatura})` : ''}{u.activo ? '' : ' (inactiva)'}
               {' '}<button type="button" className="boton-silencioso" onClick={() => {
-                const t = pedirTexto('Nuevo nombre de la unidad', u.nombre);
-                if (t) void ejecutar(() => supabase.from('unidades_medida').update({ nombre: t }).eq('id', u.id).eq('version', u.version), 'Unidad renombrada.');
+                abrirRenombrar({ pregunta: 'Nuevo nombre de la unidad', actual: u.nombre, aplicar: (t) =>
+                  void ejecutar(() => supabase.from('unidades_medida').update({ nombre: t }).eq('id', u.id).eq('version', u.version), 'Unidad renombrada.') });
               }}>Renombrar</button>
               <button type="button" className="boton-silencioso" onClick={() =>
                 void ejecutar(() => supabase.from('unidades_medida').update({ activo: !u.activo }).eq('id', u.id).eq('version', u.version),
@@ -95,8 +93,8 @@ export function AdminCatalogos() {
             <li key={a.id}>
               {a.nombre} {a.activo ? '' : ' (inactiva)'}
               {' '}<button type="button" className="boton-silencioso" onClick={() => {
-                const t = pedirTexto('Nuevo nombre del área', a.nombre);
-                if (t) void ejecutar(() => supabase.from('areas').update({ nombre: t }).eq('id', a.id).eq('version', a.version), 'Área renombrada.');
+                abrirRenombrar({ pregunta: 'Nuevo nombre del área', actual: a.nombre, aplicar: (t) =>
+                  void ejecutar(() => supabase.from('areas').update({ nombre: t }).eq('id', a.id).eq('version', a.version), 'Área renombrada.') });
               }}>Renombrar</button>
               {' '}<button type="button" className="boton-silencioso" onClick={() =>
                 void ejecutar(() => supabase.from('areas').update({ activo: !a.activo }).eq('id', a.id).eq('version', a.version),
@@ -124,8 +122,8 @@ export function AdminCatalogos() {
             <li key={c.id}>
               <b>{c.codigo}</b> · {c.nombre} {c.activo ? '' : ' (inactivo)'}
               {' '}<button type="button" className="boton-silencioso" onClick={() => {
-                const t = pedirTexto(`Nuevo nombre para ${c.codigo}`, c.nombre);
-                if (t) void ejecutar(() => supabase.from('centros_costo').update({ nombre: t }).eq('id', c.id).eq('version', c.version), 'Centro de costo renombrado.');
+                abrirRenombrar({ pregunta: `Nuevo nombre para ${c.codigo}`, actual: c.nombre, aplicar: (t) =>
+                  void ejecutar(() => supabase.from('centros_costo').update({ nombre: t }).eq('id', c.id).eq('version', c.version), 'Centro de costo renombrado.') });
               }}>Renombrar</button>
               {' '}<button type="button" className="boton-silencioso" onClick={() =>
                 void ejecutar(() => supabase.from('centros_costo').update({ activo: !c.activo }).eq('id', c.id).eq('version', c.version),
@@ -174,6 +172,23 @@ export function AdminCatalogos() {
           ))}
         </ul>
       </div>
+      <Modal titulo={renombrar?.pregunta ?? ''} abierto={!!renombrar} alCerrar={() => setRenombrar(null)}>
+        <form className="formulario" onSubmit={(e) => {
+          e.preventDefault();
+          const t = nombreNuevo.trim();
+          if (renombrar && t.length >= 2 && t !== renombrar.actual) { renombrar.aplicar(t); setRenombrar(null); }
+        }}>
+          <Campo etiqueta="Nombre" requerido
+            error={nombreNuevo.trim().length > 0 && nombreNuevo.trim().length < 2 ? 'Escribe al menos 2 caracteres.' : undefined}
+            ayuda="El registro conserva su historia: solo cambia el nombre.">
+            <input value={nombreNuevo} onChange={(e) => setNombreNuevo(e.target.value)} />
+          </Campo>
+          <div className="modal-acciones">
+            <Boton onClick={() => setRenombrar(null)}>Cancelar</Boton>
+            <Boton type="submit" variante="primario" disabled={nombreNuevo.trim().length < 2 || nombreNuevo.trim() === renombrar?.actual}>Guardar nombre</Boton>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

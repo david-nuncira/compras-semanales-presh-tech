@@ -5,7 +5,7 @@ import { useSesion } from '../contexto/Sesion.tsx';
 import { useActualizacionPeriodica } from '../datos.ts';
 import type { VSolicitud, Etapa } from '../tipos.ts';
 import { ETIQUETA_ESTADO_SOLICITUD, ETIQUETA_ETAPA } from '../tipos.ts';
-import { Campo, MensajeError, Cargando, Paginador, InsigniaSolicitud, Icono } from '../componentes/UI.tsx';
+import { Campo, MensajeError, Cargando, Paginador, InsigniaSolicitud, Icono, Pestanas } from '../componentes/UI.tsx';
 import { etiquetaSemana, fmtFecha } from '../util/fechas.ts';
 import { generarCSV, descargarCSV } from '../util/csv.ts';
 import { useEstadoURL } from '../util/estadoUrl.ts';
@@ -85,15 +85,13 @@ export function MisSolicitudes() {
           <button type="button" className="enlace" onClick={() => cambiar({ bandeja: 'devueltas' })}>Verlas</button>
         </p>
       ) : null}
-      <div className="pestanas" role="tablist">
-        {([['todas', 'Todas'], ['borradores', 'Borradores'], ['devueltas', `Devueltas${devueltas ? ` (${devueltas})` : ''}`],
-           ['aprobacion', 'En aprobación / programadas'], ['compras', 'En Compras'], ['finalizadas', 'Rechazadas / canceladas']] as Array<[Bandeja, string]>)
-          .map(([k, t]) => (
-            <button key={k} type="button" role="tab" aria-selected={bandeja === k}
-              className={bandeja === k ? 'boton-primario' : 'boton-secundario'}
-              onClick={() => cambiar({ bandeja: k })}>{t}</button>
-          ))}
-      </div>
+      <Pestanas etiqueta="Bandejas de solicitudes" activa={bandeja} alCambiar={(k) => cambiar({ bandeja: k })}
+        pestanas={[
+          { id: 'todas', titulo: 'Todas' }, { id: 'borradores', titulo: 'Borradores' },
+          { id: 'devueltas', titulo: 'Devueltas', contador: devueltas || undefined },
+          { id: 'aprobacion', titulo: 'En aprobación / programadas' }, { id: 'compras', titulo: 'En Compras' },
+          { id: 'finalizadas', titulo: 'Rechazadas / canceladas' }
+        ]} />
       <div className="filtros">
         <Campo etiqueta="Buscar por número">
           <input value={filtroTexto} onChange={(e) => cambiar({ q: e.target.value })} placeholder="SOL-2026-…" />

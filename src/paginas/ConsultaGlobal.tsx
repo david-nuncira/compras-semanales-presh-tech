@@ -4,7 +4,7 @@ import { supabase, limpiarError } from '../supabase.ts';
 import { useCatalogos, useActualizacionPeriodica } from '../datos.ts';
 import type { VSolicitud } from '../tipos.ts';
 import { ETIQUETA_ESTADO_SOLICITUD } from '../tipos.ts';
-import { Campo, MensajeError, Cargando, Paginador, InsigniaSolicitud } from '../componentes/UI.tsx';
+import { Campo, MensajeError, Cargando, Paginador, InsigniaSolicitud, Pestanas } from '../componentes/UI.tsx';
 import { etiquetaSemana, fmtFecha, fmtFechaHora } from '../util/fechas.ts';
 import { generarCSV, descargarCSV } from '../util/csv.ts';
 import { useEstadoURL } from '../util/estadoUrl.ts';
@@ -89,14 +89,12 @@ export function ConsultaGlobal() {
     <div className="contenido">
       <h1>Consulta global de solicitudes</h1>
       <p className="texto-suave">Solo lectura. Las solicitudes pendientes de aprobación o programadas <b>todavía no son de Compras</b> y así se indican.</p>
-      <div className="pestanas" role="tablist">
-        {([['todas', 'Todas'], ['aprobacion', 'Pendientes de aprobación'], ['programadas', 'Programadas'],
-           ['compras', 'En Compras'], ['devueltas', 'Devueltas'], ['finalizadas', 'Rechazadas / canceladas']] as Array<[Grupo, string]>)
-          .map(([k, t]) => (
-            <button key={k} type="button" role="tab" aria-selected={grupo === k}
-              className={grupo === k ? 'boton-primario' : 'boton-secundario'} onClick={() => cambiar({ grupo: k })}>{t}</button>
-          ))}
-      </div>
+      <Pestanas etiqueta="Grupos de solicitudes" activa={grupo} alCambiar={(k) => cambiar({ grupo: k })}
+        pestanas={[
+          { id: 'todas', titulo: 'Todas' }, { id: 'aprobacion', titulo: 'Pendientes de aprobación' },
+          { id: 'programadas', titulo: 'Programadas' }, { id: 'compras', titulo: 'En Compras' },
+          { id: 'devueltas', titulo: 'Devueltas' }, { id: 'finalizadas', titulo: 'Rechazadas / canceladas' }
+        ]} />
       <div className="filtros">
         <Campo etiqueta="Número"><input value={texto} onChange={(e) => cambiar({ q: e.target.value })} /></Campo>
         <Campo etiqueta="Área">
