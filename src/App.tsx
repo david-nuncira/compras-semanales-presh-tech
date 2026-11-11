@@ -13,6 +13,7 @@ import { PendienteActivacion } from './paginas/PendienteActivacion.tsx';
 // Carga diferida por ruta: cada pantalla se descarga solo cuando se abre.
 const Tablero = lazy(() => import('./paginas/Tablero.tsx').then((m) => ({ default: m.Tablero })));
 const MisSolicitudes = lazy(() => import('./paginas/MisSolicitudes.tsx').then((m) => ({ default: m.MisSolicitudes })));
+const AsistenteSolicitud = lazy(() => import('./paginas/AsistenteSolicitud.tsx').then((m) => ({ default: m.AsistenteSolicitud })));
 const SolicitudDetalle = lazy(() => import('./paginas/SolicitudDetalle.tsx').then((m) => ({ default: m.SolicitudDetalle })));
 const AprobacionSolicitudes = lazy(() => import('./paginas/AprobacionSolicitudes.tsx').then((m) => ({ default: m.AprobacionSolicitudes })));
 const GestionCompras = lazy(() => import('./paginas/GestionCompras.tsx').then((m) => ({ default: m.GestionCompras })));
@@ -106,6 +107,8 @@ export function App() {
           <Route path="/" element={<Protegida><Tablero /></Protegida>} />
           <Route path="/notificaciones" element={<Protegida><Notificaciones /></Protegida>} />
           <Route path="/mis-solicitudes" element={<Protegida permite={(p) => p.solicitante}><MisSolicitudes /></Protegida>} />
+          <Route path="/nueva-solicitud" element={<Protegida permite={(p) => p.solicitante}><AsistenteSolicitud /></Protegida>} />
+          <Route path="/nueva-solicitud/:id" element={<Protegida permite={(p) => p.solicitante}><AsistenteSolicitud /></Protegida>} />
           <Route path="/solicitudes/:id" element={<Protegida><SolicitudDetalle /></Protegida>} />
           <Route path="/aprobacion-solicitudes" element={<Protegida permite={(p) => p.jefe}><AprobacionSolicitudes /></Protegida>} />
           <Route path="/gestion" element={<Protegida permite={(p) => p.gestor}><GestionCompras /></Protegida>} />

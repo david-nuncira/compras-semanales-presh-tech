@@ -3,7 +3,7 @@ import { supabase, rpc, limpiarError, nuevoOp } from '../supabase.ts';
 import { CONFIG } from '../config.ts';
 import type { Adjunto, EntidadAdjunto } from '../tipos.ts';
 import { comprimirSiConviene, tipoFinal, extensionDe } from '../util/imagenes.ts';
-import { MensajeError, MensajeExito, Cargando, Modal } from './UI.tsx';
+import { MensajeError, MensajeExito, Cargando, Modal, ModalConfirmar, Boton, Icono } from './UI.tsx';
 import { fmtFechaHora } from '../util/fechas.ts';
 
 const TIPOS_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -43,8 +43,10 @@ function subirConProgreso(ruta: string, cuerpo: Blob, tipo: string, token: strin
  * de imágenes y apertura de PDF. Descarga SIEMPRE autenticada (sin enlaces
  * públicos ni firmados reutilizables).
  */
-export function Adjuntos({ entidad, entidadId, puedeSubir, maxArchivos = 3, titulo = 'Imágenes y documentos' }: {
+export function Adjuntos({ entidad, entidadId, puedeSubir, maxArchivos = 3, titulo = 'Imágenes y documentos', alCambiar }: {
   entidad: EntidadAdjunto; entidadId: string; puedeSubir: boolean; maxArchivos?: number; titulo?: string;
+  /** Se llama después de subir o eliminar, para que la pantalla refresque sus miniaturas. */
+  alCambiar?: () => void;
 }) {
   const [lista, setLista] = useState<Adjunto[] | null>(null);
   const [miniaturas, setMiniaturas] = useState<Record<string, string>>({});
@@ -54,6 +56,8 @@ export function Adjuntos({ entidad, entidadId, puedeSubir, maxArchivos = 3, titu
   const [arrastrando, setArrastrando] = useState(false);
   const [visor, setVisor] = useState<{ url: string; nombre: string } | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const camaraRef = useRef<HTMLInputElement | null>(null);
+  const [porEliminar, setPorEliminar] = useState<Adjunto | null>(null);
   const urlsRef = useRef<string[]>([]);
 
   const cargar = useCallback(async () => {
@@ -137,8 +141,9 @@ export function Adjuntos({ entidad, entidadId, puedeSubir, maxArchivos = 3, titu
       }
     }
     setCargas((xs) => xs.filter((c) => c.estado === 'error'));
-    if (ok > 0) setExito(`${ok} archivo(s) adjuntado(s) correctamente.`);
+    if (ok > 0) { setExito(`${ok} archivo(s) adjuntado(s) correctamente.`); alCambiar?.(); }
     if (inputRef.current) inputRef.current.value = '';
+    if (camaraRef.current) camaraRef.current.value = '';
     await cargar();
   }
 
@@ -162,15 +167,14 @@ export function Adjuntos({ entidad, entidadId, puedeSubir, maxArchivos = 3, titu
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
 
+  // Eliminar es irreversible: se confirma en un diálogo accesible.
   async function eliminar(a: Adjunto) {
-    if (!window.confirm(`¿Eliminar el adjunto "${a.nombre_original}"?`)) return;
     setError(null);
-    try {
-      await rpc('fn_eliminar_adjunto', { p_adjunto: a.id, p_motivo: 'Eliminado por quien lo subió' });
-      await supabase.storage.from('adjuntos').remove([a.ruta]);
-      setExito('Adjunto eliminado.');
-      await cargar();
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    await rpc('fn_eliminar_adjunto', { p_adjunto: a.id, p_motivo: 'Eliminado por quien lo subió' });
+    await supabase.storage.from('adjuntos').remove([a.ruta]);
+    setExito('Adjunto eliminado.');
+    await cargar();
+    alCambiar?.();
   }
 
   if (lista === null) return <Cargando texto="Cargando adjuntos…" />;
@@ -193,7 +197,7 @@ export function Adjuntos({ entidad, entidadId, puedeSubir, maxArchivos = 3, titu
               <div className="acciones-fila">
                 <button type="button" className="boton-silencioso" onClick={() => void abrir(a)}>Ver</button>
                 <button type="button" className="boton-silencioso" onClick={() => void descargar(a)}>Descargar</button>
-                {puedeSubir ? <button type="button" className="boton-silencioso" onClick={() => void eliminar(a)}>Eliminar</button> : null}
+                {puedeSubir ? <button type="button" className="boton-silencioso" onClick={() => setPorEliminar(a)}>Eliminar</button> : null}
               </div>
             </div>
           ))}
@@ -225,6 +229,17 @@ export function Adjuntos({ entidad, entidadId, puedeSubir, maxArchivos = 3, titu
             onChange={(e) => void subirArchivos(Array.from(e.target.files ?? []))} />
         </div>
       ) : null}
+      {puedeSubir && restantes > 0 ? (
+        <div className="acciones-fila" style={{ marginTop: '0.5rem' }}>
+          <Boton onClick={() => camaraRef.current?.click()}><Icono nombre="mas" /> Tomar foto con la cámara</Boton>
+          <input ref={camaraRef} type="file" accept="image/*" capture="environment" hidden
+            aria-label="Tomar foto con la cámara" onChange={(e) => void subirArchivos(Array.from(e.target.files ?? []))} />
+        </div>
+      ) : null}
+      <ModalConfirmar abierto={!!porEliminar} titulo="Eliminar adjunto" peligro etiqueta="Eliminar"
+        texto={`¿Eliminar el adjunto "${porEliminar?.nombre_original ?? ''}"? No se puede deshacer.`}
+        alConfirmar={async () => { if (porEliminar) await eliminar(porEliminar); }}
+        alCerrar={() => setPorEliminar(null)} />
       <MensajeError texto={error} />
       <MensajeExito texto={exito} />
 

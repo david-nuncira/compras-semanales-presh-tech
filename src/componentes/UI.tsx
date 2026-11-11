@@ -7,6 +7,7 @@ import type {
 } from 'react';
 import type { Etapa, EstadoAprobacion, EstadoSolicitud } from '../tipos.ts';
 import { ETIQUETA_ETAPA, ETIQUETA_APROBACION, ETIQUETA_ESTADO_SOLICITUD, RECORRIDO } from '../tipos.ts';
+import { textoHace } from '../util/envio.ts';
 
 /* ============================================================
    Íconos (SVG en línea, sin dependencias). Siempre acompañan a
@@ -438,6 +439,44 @@ export function BotonConMotivo({ etiqueta, titulo, descripcion, onConfirmar, cla
       <MensajeExito texto={hecho} flotante alCerrar={() => setHecho(null)} />
     </>
   );
+}
+
+/**
+ * Confirmación accesible para acciones irreversibles (reemplaza a confirm()).
+ * Si falla, el error se muestra dentro del diálogo y no se cierra.
+ */
+export function ModalConfirmar({ abierto, titulo, texto, etiqueta = 'Confirmar', peligro, alConfirmar, alCerrar }: {
+  abierto: boolean; titulo: string; texto: ReactNode; etiqueta?: string; peligro?: boolean;
+  alConfirmar: () => Promise<void>; alCerrar: () => void;
+}) {
+  const [ocupado, setOcupado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { if (abierto) setError(null); }, [abierto]);
+  return (
+    <Modal titulo={titulo} abierto={abierto} alCerrar={alCerrar}>
+      <p>{texto}</p>
+      <MensajeError texto={error} />
+      <div className="modal-acciones">
+        <button type="button" className="boton-secundario" onClick={alCerrar}>Cancelar</button>
+        <Boton variante={peligro ? 'peligro' : 'primario'} cargando={ocupado}
+          onClick={async () => {
+            setOcupado(true); setError(null);
+            try { await alConfirmar(); alCerrar(); }
+            catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+            finally { setOcupado(false); }
+          }}>{etiqueta}</Boton>
+      </div>
+    </Modal>
+  );
+}
+
+/** «Guardado hace X»: se actualiza solo cada 20 segundos. */
+export function IndicadorGuardado({ cuando, guardando }: { cuando: number | null; guardando?: boolean }) {
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setAhora(Date.now()), 20000); return () => clearInterval(t); }, []);
+  if (guardando) return <span className="texto-suave" role="status">Guardando…</span>;
+  if (!cuando) return <span className="texto-suave">Borrador sin guardar</span>;
+  return <span className="texto-suave" role="status"><Icono nombre="check" tam={14} /> Guardado {textoHace(cuando, ahora)}</span>;
 }
 
 /* ============================================================

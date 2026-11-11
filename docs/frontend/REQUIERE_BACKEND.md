@@ -4,4 +4,7 @@ Cosas que el rediseño necesita y que el backend aún no ofrece. Cada fila indic
 
 | Pantalla | Dato que falta | Por qué hace falta |
 |---|---|---|
-| _(vacío por ahora)_ | | |
+| Detalle de solicitud · línea de tiempo (etapas de cotización, compra, llegada, entrega y cierre) | Un historial por etapa de la solicitud con fecha y responsable. Hoy `fn_historial_solicitud` solo llega hasta la recepción por Compras. | Para esas etapas la interfaz deduce fecha y responsable del registro de auditoría de cada artículo (`fn_historial_articulo`, por tabla) y de las fechas de `v_articulos`. Funciona, pero depende de nombres de tabla internos y puede quedar vacío si el usuario no tiene permiso sobre ese historial. |
+| Detalle de solicitud · «Versiones anteriores» tras una devolución | El contenido de cada versión enviada (artículos y cantidades de esa versión). Hoy solo se conoce que hubo un envío y su fecha. | Para mostrar qué cambió entre versiones y no solo cuándo se envió. |
+| Nueva solicitud · paso 1 con borrador ya guardado | Una función para cambiar centro de costo, categoría o carácter extraordinario de un borrador. Solo existe `fn_reprogramar_semana`. | Hoy, si el solicitante se equivoca de centro de costo, debe cancelar el borrador y crear otro. |
+| Inicio del solicitante · «artículos para recoger» | Un indicador propio en `fn_resumen_tablero` (entregas pendientes del solicitante). Hoy se cuenta desde `v_articulos` con saldo en almacén. | Confirmar que ese conteo coincide con lo que el solicitante debe recoger. |

@@ -1,16 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase, limpiarError } from '../supabase.ts';
 import { useSesion } from '../contexto/Sesion.tsx';
-import { usePermisos } from '../permisos.ts';
-import { useCatalogos, useActualizacionPeriodica, centrosDelArea } from '../datos.ts';
+import { useActualizacionPeriodica } from '../datos.ts';
 import type { VSolicitud, Etapa } from '../tipos.ts';
 import { ETIQUETA_ESTADO_SOLICITUD, ETIQUETA_ETAPA } from '../tipos.ts';
-import { Campo, MensajeError, Cargando, Modal, Paginador, InsigniaSolicitud } from '../componentes/UI.tsx';
-import { CalendarioSemanas } from '../componentes/CalendarioSemanas.tsx';
-import { etiquetaSemana, lunesProximaSemana, fmtFecha } from '../util/fechas.ts';
+import { Campo, MensajeError, Cargando, Paginador, InsigniaSolicitud, Icono } from '../componentes/UI.tsx';
+import { etiquetaSemana, fmtFecha } from '../util/fechas.ts';
 import { generarCSV, descargarCSV } from '../util/csv.ts';
-import { centroInicial } from '../util/validaciones.ts';
 import { useEstadoURL } from '../util/estadoUrl.ts';
 
 const POR_PAGINA = 20;
@@ -33,9 +30,6 @@ function resumenEtapas(r: Record<string, number> | null): string {
 
 export function MisSolicitudes() {
   const { perfil } = useSesion();
-  const permisos = usePermisos();
-  const navegar = useNavigate();
-  const { cat } = useCatalogos();
   const [filas, setFilas] = useState<VSolicitud[] | null>(null);
   const [total, setTotal] = useState(0);
   // Bandeja, búsqueda y página viven en la URL: «Atrás» conserva la posición.
@@ -44,25 +38,6 @@ export function MisSolicitudes() {
   const filtroTexto = filtrosUrl.q;
   const [error, setError] = useState<string | null>(null);
   const [devueltas, setDevueltas] = useState(0);
-
-  // Alta de solicitud
-  const [abierto, setAbierto] = useState(false);
-  const [ccId, setCcId] = useState('');
-  const [categoria, setCategoria] = useState('');
-  const [justificacion, setJustificacion] = useState('');
-  const [semana, setSemana] = useState(lunesProximaSemana());
-  const [extra, setExtra] = useState(false);
-  const [motivoExtra, setMotivoExtra] = useState('');
-  const [errores, setErrores] = useState<Record<string, string>>({});
-  const [errorAlta, setErrorAlta] = useState<string | null>(null);
-  const [creando, setCreando] = useState(false);
-
-  const areaId = perfil?.area_id ?? null;
-  const areaNombre = perfil?.area_nombre ?? cat?.areas.find((a) => a.id === areaId)?.nombre ?? null;
-  const centros = useMemo(() => centrosDelArea(cat, areaId), [cat, areaId]);
-  const inicialCC = centroInicial(centros.map((c) => c.id));
-
-  useEffect(() => { if (abierto) setCcId(inicialCC.valor); }, [abierto, inicialCC.valor]);
 
   const cargar = useCallback(async () => {
     setError(null);
@@ -84,37 +59,6 @@ export function MisSolicitudes() {
   }, [perfil?.id, pagina, bandeja, filtroTexto]);
 
   useActualizacionPeriodica(cargar, 60000, [cargar]);
-
-  async function crear(e: React.FormEvent) {
-    e.preventDefault();
-    setErrorAlta(null);
-    const errs: Record<string, string> = {};
-    if (!areaId) errs.area = 'Tu usuario no tiene área asignada. Pide a administración que te vincule.';
-    if (!ccId) errs.cc = centros.length === 0
-      ? 'Tu área no tiene centros de costo autorizados. Avisa a administración.'
-      : 'Elige el centro de costo.';
-    if (extra && motivoExtra.trim().length < 10) errs.motivoExtra = 'Describe la emergencia (mínimo 10 caracteres).';
-    setErrores(errs);
-    if (Object.keys(errs).length > 0) return;
-    setCreando(true);
-    try {
-      const { data, error: e1 } = await supabase.from('solicitudes').insert({
-        area_id: areaId,
-        centro_costo_id: ccId,
-        categoria_id: categoria || null,
-        justificacion: justificacion.trim() || null,
-        semana_lunes: semana,
-        es_extraordinaria: extra,
-        motivo_extraordinaria: extra ? motivoExtra.trim() : null
-      }).select('id').single();
-      if (e1) throw new Error(limpiarError(e1.message));
-      navegar(`/solicitudes/${(data as { id: string }).id}`);
-    } catch (err) {
-      setErrorAlta(err instanceof Error ? err.message : String(err));
-    } finally {
-      setCreando(false);
-    }
-  }
 
   function exportar() {
     if (!filas) return;
@@ -156,11 +100,11 @@ export function MisSolicitudes() {
         </Campo>
         <button type="button" className="boton-secundario" onClick={() => void cargar()}>Actualizar</button>
         <button type="button" className="boton-secundario" onClick={exportar} disabled={!filas || filas.length === 0}>Exportar CSV</button>
-        <button type="button" className="boton-primario" onClick={() => { setErrores({}); setErrorAlta(null); setAbierto(true); }}>+ Nueva solicitud</button>
+        <Link className="boton-primario enlace-boton" to="/nueva-solicitud"><Icono nombre="mas" /> Nueva solicitud</Link>
       </div>
       <MensajeError texto={error} flotante />
       {!filas ? <Cargando /> : filas.length === 0 ? (
-        <div className="tarjeta"><p>No hay solicitudes en esta bandeja. Crea una con “+ Nueva solicitud”: puedes guardarla como borrador y enviarla cuando esté lista.</p></div>
+        <div className="tarjeta"><p>No hay solicitudes en esta bandeja. Crea una con “Nueva solicitud”: puedes guardarla como borrador y enviarla cuando esté lista.</p></div>
       ) : (
         <div className="tabla-envoltura">
           <table className="tabla">
@@ -175,6 +119,8 @@ export function MisSolicitudes() {
               {filas.map((f) => (
                 <tr key={f.id}>
                   <td><Link to={`/solicitudes/${f.id}`}>{f.numero}</Link>
+                    {f.estado === 'borrador' ? <div><Link to={`/nueva-solicitud/${f.id}?paso=2`}>Continuar</Link></div> : null}
+                    {f.estado === 'en_correccion' ? <div><Link to={`/nueva-solicitud/${f.id}?paso=2`}>Corregir y reenviar</Link></div> : null}
                     {f.es_extraordinaria ? <> <span className="insignia insignia-extra">Extraordinaria</span></> : null}</td>
                   <td>
                     <InsigniaSolicitud estado={f.estado} />
@@ -196,61 +142,6 @@ export function MisSolicitudes() {
       )}
       <Paginador pagina={pagina} porPagina={POR_PAGINA} total={total} alCambiar={irAPagina} />
 
-      <Modal titulo="Nueva solicitud (se guarda como borrador)" abierto={abierto} alCerrar={() => setAbierto(false)}>
-        <form className="formulario" onSubmit={crear} noValidate>
-          <p className="leyenda-campos">Los campos marcados con <span className="marca-obligatorio">* obligatorio</span> son necesarios. Guardar el borrador NO lo envía a nadie.</p>
-          <div className="fila-campos">
-            <Campo etiqueta="Área" requerido error={errores.area} ayuda="Es el área a la que estás vinculado; la aprueba su jefe.">
-              <input value={areaNombre ?? 'Sin área asignada'} readOnly />
-            </Campo>
-            <Campo etiqueta="Centro de costo" requerido error={errores.cc}
-              ayuda={inicialCC.bloqueado ? 'Tu área tiene un único centro de costo autorizado.' : 'Solo aparecen los autorizados para tu área.'}>
-              <select value={ccId} onChange={(e) => setCcId(e.target.value)} disabled={inicialCC.bloqueado}>
-                <option value="">— Selecciona —</option>
-                {centros.map((c) => <option key={c.id} value={c.id}>{c.codigo} · {c.nombre}</option>)}
-              </select>
-            </Campo>
-          </div>
-          {cat && cat.categorias.length > 0 ? (
-            <Campo etiqueta="Categoría" opcional ayuda="Algunas categorías (p. ej. papelería) tienen fechas especiales de recepción.">
-              <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
-                <option value="">— Ninguna —</option>
-                {cat.categorias.map((k) => <option key={k.id} value={k.id}>{k.nombre}</option>)}
-              </select>
-            </Campo>
-          ) : null}
-          {permisos.emergencias ? (
-            <div className="tarjeta" style={{ marginBottom: 0 }}>
-              <label className="campo">
-                <span className="campo-etiqueta">
-                  <input type="checkbox" checked={extra} onChange={(e) => setExtra(e.target.checked)} /> Solicitud extraordinaria (emergencia)
-                </span>
-                <span className="campo-ayuda">No espera el calendario de Compras, pero SÍ requiere la aprobación de tu jefe. Úsala solo para emergencias reales (la prioridad “Alta” no es una emergencia).</span>
-              </label>
-              {extra ? (
-                <Campo etiqueta="Motivo de la emergencia" requerido error={errores.motivoExtra}>
-                  <textarea rows={2} value={motivoExtra} onChange={(e) => setMotivoExtra(e.target.value)} />
-                </Campo>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="campo">
-            <span className="campo-etiqueta">Semana objetivo de compra<span className="marca-obligatorio"> * obligatorio</span></span>
-            <span className="campo-ayuda">Cada tarjeta indica cuándo la recibiría Compras si tu jefe la aprueba antes del cierre.</span>
-          </div>
-          <CalendarioSemanas valor={semana} alCambiar={setSemana} categoria={categoria || null} extraordinaria={extra} />
-          <Campo etiqueta="Justificación general" opcional>
-            <textarea rows={2} value={justificacion} onChange={(e) => setJustificacion(e.target.value)} />
-          </Campo>
-          <MensajeError texto={errorAlta} />
-          <div className="modal-acciones">
-            <button type="button" className="boton-secundario" onClick={() => setAbierto(false)}>Cancelar</button>
-            <button type="submit" className="boton-primario" disabled={creando}>
-              {creando ? 'Creando…' : 'Crear borrador y agregar artículos'}
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }

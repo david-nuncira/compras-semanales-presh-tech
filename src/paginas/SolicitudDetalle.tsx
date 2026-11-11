@@ -1,15 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase, rpc, limpiarError, nuevoOp } from '../supabase.ts';
 import { useSesion } from '../contexto/Sesion.tsx';
 import { usePermisos } from '../permisos.ts';
 import { useCatalogos, useActualizacionPeriodica } from '../datos.ts';
-import type { VSolicitud, VArticulo, Movimiento, Novedad, TipoNovedad, Devolucion } from '../tipos.ts';
+import type { VSolicitud, VArticulo, Movimiento, Novedad, TipoNovedad, Devolucion, EventoHistorial } from '../tipos.ts';
 import { ETIQUETA_MOVIMIENTO, ETIQUETA_NOVEDAD } from '../tipos.ts';
 import {
-  Campo, MensajeError, MensajeExito, Cargando, Modal, InsigniaEtapa, InsigniaAprobacion,
-  InsigniaSolicitud, LineaRecorrido, BotonConMotivo
+  Boton, Campo, MensajeError, MensajeExito, Esqueleto, EstadoError, Icono, Modal, ModalConfirmar, InsigniaEtapa,
+  InsigniaAprobacion, InsigniaSolicitud, BotonConMotivo
 } from '../componentes/UI.tsx';
+import { LineaTiempo } from '../componentes/LineaTiempo.tsx';
+import { MiniaturaArticulo, useAdjuntosArticulos } from '../componentes/Miniatura.tsx';
+import { construirLineaTiempo, type EventoArticuloLinea } from '../util/lineaTiempo.ts';
+import { mensajeEnvio, type Estimacion } from '../util/envio.ts';
 import { Adjuntos } from '../componentes/Adjuntos.tsx';
 import { CalendarioSemanas } from '../componentes/CalendarioSemanas.tsx';
 import { HistorialSolicitud } from '../componentes/HistorialSolicitud.tsx';
@@ -25,20 +29,6 @@ const ARTICULO_VACIO: FormArticulo = {
   nombre: '', descripcion: '', cantidad: '1', unidad: 'Unidad', prioridad: 'media',
   fecha_requerida: '', justificacion: '', enlace_referencia: '', proveedor_sugerido: ''
 };
-
-interface Estimacion {
-  aprobador: string | null; ruta: string | null; problema: string | null;
-  recepcion_prevista: string | null; cierre: string | null; origen: string; nota: string | null;
-}
-
-function mensajeEnvio(r: { aprobador?: string; recepcion_prevista?: string; cierre?: string; origen?: string; nota?: string | null }): string {
-  const base = `Tu solicitud fue enviada a aprobación de ${r.aprobador ?? 'tu jefe'}.`;
-  if (r.origen === 'ciclo_semanal' || r.origen === 'ventana_categoria') {
-    return `${base} Su recepción por Compras está prevista para el ${fmtFecha(r.recepcion_prevista ?? null)}, siempre que esté aprobada antes del cierre del ciclo (${fmtFechaHora(r.cierre ?? null)}).${r.nota ? ' ' + r.nota : ''}`;
-  }
-  if (r.origen === 'extraordinaria') return `${base} Es extraordinaria: pasará a Compras en cuanto se apruebe.`;
-  return `${base} Pasará a Compras en cuanto se apruebe.`;
-}
 
 export function SolicitudDetalle() {
   const { id } = useParams<{ id: string }>();
@@ -58,6 +48,11 @@ export function SolicitudDetalle() {
   const [noEncontrada, setNoEncontrada] = useState(false);
   const [refrescoHist, setRefrescoHist] = useState(0);
   const [enviando, setEnviando] = useState(false);
+  const [eventos, setEventos] = useState<EventoHistorial[]>([]);
+  const [eventosArt, setEventosArt] = useState<EventoArticuloLinea[]>([]);
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  const [porEliminar, setPorEliminar] = useState<VArticulo | null>(null);
+  const [refrescoFotos, setRefrescoFotos] = useState(0);
 
   const [modalArt, setModalArt] = useState<FormArticulo | null>(null);
   const [erroresArt, setErroresArt] = useState<ErroresArticulo>({});
@@ -97,6 +92,20 @@ export function SolicitudDetalle() {
       setEntregas([]); setNovedades([]);
     }
     setRefrescoHist((n) => n + 1);
+    // Datos de la línea de tiempo: historial de la solicitud y, si ya está en Compras, el de sus artículos.
+    const rh = await supabase.rpc('fn_historial_solicitud', { p_solicitud: id });
+    setEventos(rh.error ? [] : ((rh.data ?? []) as EventoHistorial[]));
+    if (s.recibida_compras_en && arts.length > 0 && arts.length <= 40) {
+      const filas = await Promise.all(arts.map((a) => supabase.rpc('fn_historial_articulo', { p_articulo: a.id })));
+      const juntas: EventoArticuloLinea[] = [];
+      for (const f of filas) {
+        if (f.error) continue;
+        for (const x of (f.data ?? []) as Array<{ creado_en: string; tabla: string; actor_nombre: string; nuevo: Record<string, unknown> | null }>) {
+          juntas.push({ creado_en: x.creado_en, tabla: x.tabla, actor_nombre: x.actor_nombre, nuevo: x.nuevo });
+        }
+      }
+      setEventosArt(juntas);
+    } else setEventosArt([]);
   }, [id]);
 
   useActualizacionPeriodica(cargar, 60000, [cargar]);
@@ -109,13 +118,20 @@ export function SolicitudDetalle() {
     });
   }, [sol, editable]);
 
+  const { porArticulo } = useAdjuntosArticulos(articulos.map((a) => a.id), refrescoFotos);
+  const etapasTiempo = useMemo(() => (sol
+    ? construirLineaTiempo({ sol, articulos, eventos, eventosArticulos: eventosArt, ahora: new Date().toISOString() })
+    : []), [sol, articulos, eventos, eventosArt]);
+  const alternar = (idArt: string) => setAbiertos((x) => { const n = new Set(x); if (n.has(idArt)) n.delete(idArt); else n.add(idArt); return n; });
+
+  if (error && !sol) return <div className="contenido"><EstadoError mensaje={error} alReintentar={() => { setError(null); void cargar(); }} /></div>;
   if (noEncontrada) {
     return <div className="contenido"><div className="tarjeta">
       <h2>Solicitud no encontrada</h2>
       <p>No existe o tu cuenta no tiene permiso para verla.</p>
     </div></div>;
   }
-  if (!sol) return <div className="contenido"><Cargando /></div>;
+  if (!sol) return <div className="contenido"><Esqueleto lineas={6} etiqueta="Cargando la solicitud…" /></div>;
   const s = sol;
 
   async function accion(fn: () => Promise<unknown>, textoOk: string) {
@@ -175,12 +191,13 @@ export function SolicitudDetalle() {
     }
   }
 
+  // Eliminar es irreversible: se confirma en un diálogo accesible (ver ModalConfirmar).
   async function eliminarArticulo(a: VArticulo) {
-    if (!window.confirm(`¿Eliminar el artículo "${a.nombre}" del borrador?`)) return;
-    await accion(async () => {
-      const { error: e1 } = await supabase.from('articulos').delete().eq('id', a.id);
-      if (e1) throw new Error(limpiarError(e1.message));
-    }, 'Artículo eliminado del borrador.');
+    setResultado(null);
+    const { error: e1 } = await supabase.from('articulos').delete().eq('id', a.id);
+    if (e1) throw new Error(limpiarError(e1.message));
+    setResultado({ ok: true, texto: 'Artículo eliminado del borrador.' });
+    await cargar();
   }
 
   async function crearNovedad(e: React.FormEvent) {
@@ -197,6 +214,8 @@ export function SolicitudDetalle() {
   }
 
   const devPendiente = devoluciones.find((d) => d.estado === 'pendiente');
+  const eventoDevolucion = [...eventos].reverse().find((x) => ['decision_devuelta', 'a_correccion', 'devolucion_autorizada'].includes(x.tipo)) ?? null;
+  const versionesEnviadas = eventos.filter((x) => x.tipo === 'envio');
   const entregasSinConfirmar = entregas.filter(() => esDueno).filter((m) => !m.confirmado_por_solicitante);
 
   return (
@@ -208,13 +227,27 @@ export function SolicitudDetalle() {
         {s.flujo === 'anterior' ? <span className="insignia-suave">Flujo anterior: sin aprobación previa registrada</span> : null}
         {s.origen === 'importacion_csv' ? <span className="insignia-suave">Origen: histórico CSV</span> : null}
       </div>
-      <LineaRecorrido estado={s.estado} resumen={s.resumen_etapas} />
 
       {s.estado === 'en_correccion' ? (
-        <div className="mensaje mensaje-error">
-          <b>Devuelta para corrección.</b> Motivo: {s.ultimo_motivo_devolucion ?? s.ultimo_motivo_jefe ?? 'sin motivo registrado'}.
-          {esDueno ? ' Ajusta lo necesario y usa “Reenviar a aprobación”: pasará otra vez por tu jefe y se conserva la versión anterior.' : ''}
-        </div>
+        <section className="devolucion" aria-labelledby="dev-titulo">
+          <h2 id="dev-titulo"><Icono nombre="devolver" /> Devuelta para corrección</h2>
+          <p className="devolucion-motivo"><b>Motivo:</b> {s.ultimo_motivo_devolucion ?? s.ultimo_motivo_jefe ?? eventoDevolucion?.motivo ?? 'sin motivo registrado'}</p>
+          {eventoDevolucion ? <p className="texto-suave">{eventoDevolucion.actor} · {fmtFechaHora(eventoDevolucion.evento_en)}</p> : null}
+          {esDueno ? (
+            <>
+              <p>Corrige lo necesario y reenvíala: pasará otra vez por tu jefe y se conserva la versión anterior.</p>
+              <div className="acciones-fila"><Link className="boton-primario enlace-boton" to={`/nueva-solicitud/${s.id}?paso=2`}>Corregir y reenviar</Link></div>
+            </>
+          ) : null}
+          {versionesEnviadas.length > 1 ? (
+            <details>
+              <summary>Versiones anteriores ({versionesEnviadas.length - 1})</summary>
+              <ul>{versionesEnviadas.slice(0, -1).map((v, k) => (
+                <li key={k}>{v.descripcion} · {fmtFechaHora(v.evento_en)}{v.motivo ? ` · ${v.motivo}` : ''}</li>
+              ))}</ul>
+            </details>
+          ) : null}
+        </section>
       ) : null}
       {s.estado === 'rechazada' ? (
         <div className="mensaje mensaje-error"><b>Rechazada.</b> Motivo: {s.ultimo_motivo_jefe ?? 'sin motivo registrado'}.</div>
@@ -225,6 +258,11 @@ export function SolicitudDetalle() {
           La debe autorizar {['pendiente_aprobacion', 'programada'].includes(s.estado) ? 'el aprobador' : 'Compras'}.
         </div>
       ) : null}
+
+      <section className="tarjeta" aria-labelledby="tl-titulo">
+        <h2 id="tl-titulo">Seguimiento</h2>
+        <LineaTiempo etapas={etapasTiempo} />
+      </section>
 
       <div className="tarjeta">
         <div className="fechas">
@@ -248,10 +286,11 @@ export function SolicitudDetalle() {
 
       {/* ---------- Acciones del solicitante (con resultado junto a ellas) ---------- */}
       {esDueno ? (
-        <div className="tarjeta">
+        <div className="tarjeta barra-acciones">
           <div className="acciones-fila">
             {editable ? (
               <>
+                <Link className="boton-secundario enlace-boton" to={`/nueva-solicitud/${s.id}?paso=2`}>Abrir en el asistente</Link>
                 <button type="button" className="boton-secundario" onClick={() => { setErroresArt({}); setErrorArt(null); setModalArt({ ...ARTICULO_VACIO }); }}>
                   + Agregar artículo
                 </button>
@@ -327,15 +366,31 @@ export function SolicitudDetalle() {
       ) : null}
 
       <h2>Artículos ({articulos.length})</h2>
+      {articulos.length > 0 ? (
+      <div className="tabla-envoltura" tabIndex={0} role="region" aria-label="Artículos de la solicitud">
+      <table className="tabla tabla-datos">
+        <caption className="solo-lectores">Artículos de la solicitud</caption>
+        <thead><tr><th scope="col">Foto</th><th scope="col">Artículo</th><th scope="col" className="numero">Cantidad</th><th scope="col">Estado</th><th scope="col" className="oculto-movil">Compra</th><th scope="col"><span className="solo-lectores">Detalle</span></th></tr></thead>
+        <tbody>
       {articulos.map((a) => (
-        <div className="tarjeta" key={a.id}>
-          <div className="acciones-fila">
-            <h3 style={{ margin: 0 }}>{a.nombre}</h3>
-            {a.etapa !== 'borrador' ? <InsigniaEtapa etapa={a.etapa} /> : null}
-            {a.requiere_aprobacion ? <InsigniaAprobacion estado={a.estado_aprobacion} /> : null}
-            {a.novedades_abiertas > 0 ? <span className="insignia aprobacion-pendiente">{a.novedades_abiertas} novedad(es) abierta(s)</span> : null}
-            {(a.dias_atraso ?? 0) > 0 ? <span className="atraso">Atraso: {a.dias_atraso} día(s)</span> : null}
-          </div>
+        <Fragment key={a.id}>
+        <tr>
+          <td><MiniaturaArticulo nombre={a.nombre} adjuntos={porArticulo[a.id]} /></td>
+          <td><b>{a.nombre}</b></td>
+          <td className="numero">{fmtCantidad(a.cantidad)} {a.unidad}</td>
+          <td>
+            <div className="insignias-col">
+              {a.etapa !== 'borrador' ? <InsigniaEtapa etapa={a.etapa} /> : null}
+              {a.requiere_aprobacion ? <InsigniaAprobacion estado={a.estado_aprobacion} /> : null}
+              {a.novedades_abiertas > 0 ? <span className="insignia insignia-aviso"><Icono nombre="alerta" tam={14} />{a.novedades_abiertas} novedad(es) abierta(s)</span> : null}
+              {(a.dias_atraso ?? 0) > 0 ? <span className="atraso">Atraso: {a.dias_atraso} día(s)</span> : null}
+            </div>
+          </td>
+          <td className="oculto-movil texto-suave">{a.compra_id ? `${a.proveedor_nombre ?? ''} · ${fmtMoneda(a.total, a.moneda ?? 'COP')}` : '—'}</td>
+          <td><Boton variante="fantasma" aria-expanded={abiertos.has(a.id)} onClick={() => alternar(a.id)}>{abiertos.has(a.id) ? 'Ocultar' : 'Detalle'}</Boton></td>
+        </tr>
+        {abiertos.has(a.id) ? (
+        <tr className="fila-detalle"><td colSpan={6}><div>
           <p>Cantidad: <b>{fmtCantidad(a.cantidad)} {a.unidad}</b> · Prioridad: {a.prioridad}
             {a.fecha_requerida ? <> · Requerido para {fmtFecha(a.fecha_requerida)}</> : null}</p>
           <p className="texto-suave">Especificaciones: {a.descripcion}</p>
@@ -363,7 +418,7 @@ export function SolicitudDetalle() {
               }}>Editar</button>
             ) : null}
             {editable && s.estado === 'borrador' && a.etapa === 'borrador' ? (
-              <button type="button" className="boton-peligro" onClick={() => void eliminarArticulo(a)}>Eliminar</button>
+              <button type="button" className="boton-peligro" onClick={() => setPorEliminar(a)}>Eliminar</button>
             ) : null}
             {esDueno && !['borrador', 'cancelado'].includes(a.etapa) ? (
               <button type="button" className="boton-secundario" onClick={() => { setErrorArt(null); setModalNovedad({ articuloId: a.id, tipo: 'entrega_incorrecta', descripcion: '' }); }}>
@@ -375,7 +430,8 @@ export function SolicitudDetalle() {
             ) : null}
           </div>
           <Adjuntos entidad="articulo" entidadId={a.id}
-            puedeSubir={(editable && a.etapa !== 'cancelado') || ((permisos.gestor || permisos.almacen) && !!s.recibida_compras_en && !['cerrado', 'cancelado'].includes(a.etapa))} />
+            puedeSubir={(editable && a.etapa !== 'cancelado') || ((permisos.gestor || permisos.almacen) && !!s.recibida_compras_en && !['cerrado', 'cancelado'].includes(a.etapa))}
+            alCambiar={() => setRefrescoFotos((n) => n + 1)} />
           {novedades.filter((n) => n.articulo_id === a.id).length > 0 ? (
             <>
               <h4>Novedades</h4>
@@ -404,16 +460,26 @@ export function SolicitudDetalle() {
               </ul>
             </>
           ) : null}
-        </div>
+        </div></td></tr>
+        ) : null}
+        </Fragment>
       ))}
+        </tbody>
+      </table>
+      </div>
+      ) : null}
       {articulos.length === 0 ? <div className="tarjeta"><p>Aún no hay artículos. {editable ? 'Agrega el primero con “+ Agregar artículo”.' : ''}</p></div> : null}
 
-      <div className="tarjeta">
-        <h2>Historial</h2>
+      <details className="tarjeta">
+        <summary><b>Historial detallado</b></summary>
         <HistorialSolicitud solicitudId={s.id} refresco={refrescoHist} />
-      </div>
+      </details>
 
       <p><button type="button" className="boton-secundario" onClick={() => navegar(-1)}>← Volver</button></p>
+
+      <ModalConfirmar abierto={!!porEliminar} titulo="Eliminar artículo" peligro etiqueta="Eliminar"
+        texto={`¿Eliminar el artículo "${porEliminar?.nombre ?? ''}" del borrador? No se puede deshacer.`}
+        alConfirmar={async () => { if (porEliminar) await eliminarArticulo(porEliminar); }} alCerrar={() => setPorEliminar(null)} />
 
       {/* ---------- Formulario de artículo ---------- */}
       <Modal titulo={modalArt?.id ? 'Editar artículo' : 'Agregar artículo'} abierto={!!modalArt} alCerrar={() => setModalArt(null)}>
