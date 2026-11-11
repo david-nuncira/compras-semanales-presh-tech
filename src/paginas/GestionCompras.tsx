@@ -12,6 +12,7 @@ import {
 import { MiniaturaArticulo, useAdjuntosArticulos } from '../componentes/Miniatura.tsx';
 import { ArticuloGestion } from './ArticuloGestion.tsx';
 import { PanelProveedores } from '../componentes/PanelProveedores.tsx';
+import { PasoAPaso } from '../componentes/PasoAPaso.tsx';
 import { etiquetaSemana, fmtFecha, lunesDeSemana } from '../util/fechas.ts';
 import { fmtCantidad, fmtMoneda } from '../util/moneda.ts';
 import { generarCSV, descargarCSV, type ColumnaCSV } from '../util/csv.ts';
@@ -192,6 +193,7 @@ export function GestionCompras() {
     <div className="contenido">
       <h1>Gestión de compras</h1>
       <p className="texto-suave">Solo aparecen solicitudes aprobadas por el jefe de área y liberadas según el calendario. Las extraordinarias van primero.</p>
+      <PasoAPaso pantalla="gestion" />
       <div className="filtros">
         <Campo etiqueta="Buscar (artículo, especificación o número)">
           <input value={fu.buscar} onChange={(e) => cambiar({ buscar: e.target.value })} />

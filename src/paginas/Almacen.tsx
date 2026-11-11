@@ -11,6 +11,7 @@ import { ArticuloGestion } from './ArticuloGestion.tsx';
 import { fmtCantidad } from '../util/moneda.ts';
 import { fmtFecha } from '../util/fechas.ts';
 import { useEstadoURL } from '../util/estadoUrl.ts';
+import { PasoAPaso } from '../componentes/PasoAPaso.tsx';
 
 type Vista = 'por_llegar' | 'disponibles' | 'pendientes_entrega' | 'entregados';
 const VISTAS: Array<{ id: Vista; titulo: string }> = [
@@ -97,6 +98,7 @@ export function Almacen() {
     <div className="contenido">
       <h1>Almacén</h1>
       <p className="texto-suave">Un saldo en almacén es una cantidad disponible, no una obligación de cerrar la solicitud allí.</p>
+      <PasoAPaso pantalla="almacen" />
       <Pestanas etiqueta="Vistas de almacén" pestanas={VISTAS} activa={vista} alCambiar={(id) => cambiar({ vista: id })} />
       <div className="filtros">
         <Campo etiqueta="Buscar artículo">

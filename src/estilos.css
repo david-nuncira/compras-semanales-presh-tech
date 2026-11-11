@@ -911,3 +911,21 @@ button.enlace, .th-orden { min-height: 0; }
 .guia-paso .icono { margin-top: 0.2rem; color: var(--info); }
 .grupo-titulo { margin: var(--e4) 0 0; padding-top: var(--e3); border-top: 1px solid var(--borde); font-size: var(--fs-l); color: var(--primario); }
 .formulario-articulo .grupo-titulo:first-of-type { border-top: 0; padding-top: 0; margin-top: var(--e2); }
+
+/* ===================== Guía paso a paso y administración de proveedores ===================== */
+.paso-a-paso { margin: var(--e3) 0 var(--e4); padding: var(--e2) var(--e4); border: 1px solid var(--info); border-radius: var(--radio-m); background: var(--info-claro); }
+.paso-a-paso summary { cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: var(--e2); min-height: var(--alto-tactil); color: var(--info); }
+.paso-a-paso ol { margin: var(--e2) 0; padding-left: var(--e6); display: grid; gap: var(--e1); }
+.guia-rol > summary { cursor: pointer; display: grid; gap: var(--e1); list-style: none; }
+.guia-rol > summary h3 { margin: 0; }
+.guia-pasos { margin: var(--e3) 0 0; padding-left: var(--e6); display: grid; gap: var(--e3); }
+.guia-pasos p { margin: var(--e1) 0; }
+.guia-flujo { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e3); }
+.guia-flujo li { display: flex; gap: var(--e3); align-items: flex-start; }
+.guia-flujo p { margin: var(--e1) 0 0; }
+.guia-estados { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e3); }
+.guia-estados li { display: flex; gap: var(--e3); align-items: center; flex-wrap: wrap; }
+.guia-faq dt { font-weight: 700; margin-top: var(--e3); }
+.guia-faq dd { margin: var(--e1) 0 0; }
+.lista-proveedores { list-style: none; margin: var(--e3) 0 0; padding: 0; display: grid; gap: var(--e2); }
+.lista-proveedores li { display: flex; justify-content: space-between; gap: var(--e3); flex-wrap: wrap; padding: var(--e3); border: 1px solid var(--borde); border-radius: var(--radio-m); background: var(--tarjeta); }

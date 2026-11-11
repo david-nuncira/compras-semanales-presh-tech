@@ -63,6 +63,7 @@ function Lateral({ abierto, alCerrar, esMovil }: { abierto: boolean; alCerrar: (
       { a: '/reportes', texto: 'Reportes', icono: 'grafico', visible: p.gestor || p.consultaGlobal }
     ] },
     { titulo: 'Sistema', items: [
+      { a: '/ayuda', texto: 'Ayuda paso a paso', icono: 'info', visible: true },
       { a: p.adminUsuarios ? '/admin' : '/admin/estructura', texto: 'Administración', icono: 'engranaje',
         visible: p.adminUsuarios || p.adminCatalogos || p.adminGeneral }
     ] }

@@ -63,6 +63,7 @@ export function Tablero() {
         </section>
       ) : null}
       <p className="texto-suave">Estas fichas muestran el estado actual de lo que tu cuenta puede ver y no dependen de los filtros del panel de compras.</p>
+      <p className="guia-paso"><Icono nombre="info" /> <span><b>¿Primera vez o con dudas?</b> Mira la <Link to="/ayuda">guía paso a paso</Link>: explica qué hace cada persona y cómo avanza un pedido.</span></p>
       <section className="tarjeta" aria-labelledby="hoy-titulo">
         <h2 id="hoy-titulo">Lo que tienes que hacer hoy</h2>
         {errorResumen && !r ? <EstadoError mensaje={errorResumen} alReintentar={() => void recargar()} />

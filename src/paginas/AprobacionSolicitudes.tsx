@@ -14,6 +14,7 @@ import { MiniaturaArticulo, useAdjuntosArticulos } from '../componentes/Miniatur
 import { etiquetaSemana, fmtFecha, fmtFechaHora } from '../util/fechas.ts';
 import { fmtCantidad } from '../util/moneda.ts';
 import { useEstadoURL } from '../util/estadoUrl.ts';
+import { PasoAPaso } from '../componentes/PasoAPaso.tsx';
 
 type Decision = 'aprobar' | 'devolver' | 'rechazar';
 const VACIO_URL: { ver: string } = { ver: '' };
@@ -155,6 +156,7 @@ export function AprobacionSolicitudes() {
         </div>
         <div className="contador-aprobaciones" aria-label="Solicitudes pendientes"><span>Por revisar ahora</span><b>{pendientes?.length ?? '—'}</b><small>{pendientes?.length === 1 ? 'solicitud espera tu decisión' : 'solicitudes esperan tu decisión'}</small></div>
       </section>
+      <PasoAPaso pantalla="por-aprobar" />
       <MensajeError texto={pendientes ? error : null} flotante />
       {aviso ? (aviso.ok
         ? <MensajeExito texto={aviso.texto} flotante alCerrar={() => setAviso(null)} />

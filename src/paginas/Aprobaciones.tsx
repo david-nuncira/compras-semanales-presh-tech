@@ -1,4 +1,5 @@
 import { EstadoVacio } from '../componentes/UI.tsx';
+import { PasoAPaso } from '../componentes/PasoAPaso.tsx';
 import { EstadoError } from '../componentes/UI.tsx';
 import { Formulario } from '../componentes/UI.tsx';
 import { useCallback, useState } from 'react';
@@ -85,6 +86,7 @@ export function Aprobaciones() {
     <div className="contenido">
       <h1>Aprobaciones</h1>
       <p className="texto-suave">Solo decides las aprobaciones asignadas a ti. La decisión guarda qué se aprobó exactamente (artículo, cantidad, proveedor e importe).</p>
+      <PasoAPaso pantalla="aprobaciones" />
       <MensajeError texto={error} />
       <MensajeExito texto={exito} />
       <h2>Pendientes</h2>

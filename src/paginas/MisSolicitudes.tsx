@@ -10,6 +10,7 @@ import { etiquetaSemana, fmtFecha } from '../util/fechas.ts';
 import { generarCSV, descargarCSV } from '../util/csv.ts';
 import { useEstadoURL } from '../util/estadoUrl.ts';
 import { pedidoCerrado } from '../util/cierre.ts';
+import { PasoAPaso } from '../componentes/PasoAPaso.tsx';
 
 const POR_PAGINA = 20;
 const VACIO_URL: { bandeja: string; q: string } = { bandeja: 'todas', q: '' };
@@ -84,6 +85,7 @@ export function MisSolicitudes() {
       <span className="sobre-titulo">COMPRAS · MI ÁREA</span>
       <h1>Solicitudes de mi área</h1>
       <p className="texto-suave">Crea un borrador, agrega los artículos y envíalo solo cuando esté completo. Primero lo revisa tu jefe y después llega a Compras.</p>
+      <PasoAPaso pantalla="mis-solicitudes" />
       <section className="inicio-solicitud">
         <div><span className="sobre-titulo">NUEVA NECESIDAD</span><h2>¿Qué necesitas comprar?</h2><p>Empieza con lo básico. Tus datos no se pierden y puedes continuar más tarde.</p>
           <ol className="mini-ruta" aria-label="Pasos para crear una solicitud"><li><span>1</span><div><b>Crea el borrador</b><small>Aún es privado.</small></div></li><li><span>2</span><div><b>Agrega los artículos</b><small>Con cantidades y detalles.</small></div></li><li><span>3</span><div><b>Envía a tu jefe</b><small>Compras continúa después.</small></div></li></ol>
