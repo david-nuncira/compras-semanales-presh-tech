@@ -18,6 +18,8 @@ export function useCatalogos(incluirInactivos = false) {
   const [cat, setCat] = useState<Catalogos | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cargar = useCallback(async () => {
+    setError(null);
+    try {
     const [a, c, p, x, u, k] = await Promise.all([
       supabase.from('areas').select('*').order('nombre'),
       supabase.from('centros_costo').select('*').order('codigo'),
@@ -26,7 +28,7 @@ export function useCatalogos(incluirInactivos = false) {
       supabase.from('unidades_medida').select('*').order('nombre'),
       supabase.from('categorias_solicitud').select('*').order('nombre')
     ]);
-    const e = a.error ?? c.error ?? p.error;
+    const e = a.error ?? c.error ?? p.error ?? x.error ?? u.error ?? k.error;
     if (e) { setError(limpiarError(e.message)); return; }
     const filtra = <T extends { activo: boolean }>(xs: T[]) =>
       incluirInactivos ? xs : xs.filter((v) => v.activo);
@@ -39,6 +41,7 @@ export function useCatalogos(incluirInactivos = false) {
       unidades: filtra((u.data ?? []) as UnidadMedida[]),
       categorias: filtra((k.data ?? []) as CategoriaSolicitud[])
     });
+    } catch (e) { setError(limpiarError(e instanceof Error ? e.message : String(e))); }
   }, [incluirInactivos]);
   useEffect(() => { void cargar(); }, [cargar]);
   return { cat, error, recargar: cargar };

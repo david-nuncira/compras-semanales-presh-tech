@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { CONFIG } from './config.ts';
+import { mensajeUsuario } from './util/errores.ts';
 
 // Cliente único. La sesión usa el mecanismo oficial de Auth del navegador;
 // los DATOS de negocio viven exclusivamente en PostgreSQL (nunca en el navegador).
@@ -20,12 +21,7 @@ export async function rpc<T = unknown>(fn: string, args: Record<string, unknown>
 
 /** Los RAISE de PostgreSQL llegan como "P0001: mensaje"; se limpia el prefijo. */
 export function limpiarError(m: string): string {
-  if (!m) return 'Error desconocido del servidor.';
-  const limpio = m
-    .replace(/^[A-Z0-9]{5}:\s*/, '')
-    .replace(/^permission denied for table (\w+)$/i, 'Sin permiso sobre $1 (operación no autorizada).')
-    .replace(/new row violates row-level security policy.*/i, 'Operación no autorizada para tu cuenta.');
-  return limpio;
+  return mensajeUsuario(m);
 }
 
 export function nuevoOp(): string {

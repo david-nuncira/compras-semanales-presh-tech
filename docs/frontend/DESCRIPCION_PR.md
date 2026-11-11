@@ -5,6 +5,8 @@
 ## Resumen
 Sistema de diseño con tokens y componentes, navegación lateral con contadores, Inicio por rol, asistente de nueva solicitud en 4 pasos, detalle con línea de tiempo, bandejas con panel lateral, matriz de cotizaciones y panel analítico. Sin cambios de backend ni dependencias nuevas.
 
+**Esta rama ya incluye `origin/main`** (fusionada el 2026-11-11, conflictos resueltos a mano en 11 archivos): se conserva lo nuevo de main (avisos, formularios con validación, organigrama, backend 0017–0020) y se aplica este sistema de diseño donde chocaban. Detalle en `docs/frontend/PLAN.md`. Tras la fusión: typecheck 0 errores, 94 pruebas (93 pasan, 0 fallan, 1 omitida) y build OK; archivos protegidos y `supabase/` idénticos a main.
+
 ## Pantallas
 Leyenda: **Implementado** = código terminado y compilado. **Probado (lógica)** = pruebas automáticas. **Revisión manual** = falta recorrerlo con sesión iniciada (no se pudo hacer sin credenciales).
 

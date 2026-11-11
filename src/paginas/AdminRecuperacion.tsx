@@ -1,3 +1,4 @@
+import { Formulario } from '../componentes/UI.tsx';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, limpiarError } from '../supabase.ts';
@@ -70,7 +71,7 @@ export function AdminRecuperacion() {
           <li>Genera el enlace y entrégaselo por ese mismo canal.</li>
           <li>La persona abre el enlace y define su nueva contraseña. Si caduca o ya se usó, genera otro.</li>
         </ol>
-        <form className="formulario" onSubmit={generar}>
+        <Formulario className="formulario" onSubmit={generar}>
           <Campo etiqueta="Correo de la cuenta" requerido>
             <input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} />
           </Campo>
@@ -81,7 +82,7 @@ export function AdminRecuperacion() {
               {ocupado ? 'Generando…' : 'Generar enlace de recuperación'}
             </button>
           </div>
-        </form>
+        </Formulario>
         {enlace ? (
           <div className="tarjeta" style={{ background: '#fdf3dd' }}>
             <p><b>Enlace para {paraQuien}</b> (visible solo ahora; no queda guardado en ninguna parte):</p>

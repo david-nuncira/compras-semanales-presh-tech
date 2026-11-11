@@ -151,6 +151,7 @@ export interface Novedad {
 }
 
 export interface Adjunto {
+  cotizacion_id?: string | null;
   id: string; entidad: EntidadAdjunto; entidad_id: string; ruta: string;
   nombre_original: string; mime: string; tamano_bytes: number; subido_por: string; creado_en: string;
 }
@@ -165,6 +166,7 @@ export interface CompraExterna {
 }
 
 export interface VUsuarioAdmin {
+  cargo?: string | null; jefe_id?: string | null;
   id: string; nombre: string; correo: string | null; estado: EstadoPerfil;
   area_id: string | null; area_nombre: string | null; creado_en: string; version: number; roles: Rol[];
 }

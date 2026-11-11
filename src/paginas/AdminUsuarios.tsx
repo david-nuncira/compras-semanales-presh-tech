@@ -1,3 +1,4 @@
+import { Formulario } from '../componentes/UI.tsx';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePermisos } from '../permisos.ts';
@@ -83,7 +84,7 @@ export function AdminUsuarios() {
       {!permisos.adminGeneral ? (
         <p className="mensaje mensaje-exito">Tienes permiso para administrar usuarios con permisos básicos. Las cuentas y los permisos de administración, consulta global y emergencias solo los gestiona el administrador general.</p>
       ) : null}
-      <p className="texto-suave">Para vincular personas a su área y a su jefe usa <Link to="/admin/estructura">Estructura</Link>.</p>
+      <p className="texto-suave">Después de activar una cuenta, el administrador general puede aplicarle automáticamente su cargo, área y jefe desde <Link to="/admin/organigrama">Personas y aprobaciones</Link>.</p>
       <MensajeError texto={error} flotante alCerrar={() => setError(null)} />
       <MensajeExito texto={exito} flotante alCerrar={() => setExito(null)} />
       {!usuarios ? <Cargando /> : usuarios.length === 0 ? (
@@ -158,7 +159,7 @@ export function AdminUsuarios() {
 
       <Modal titulo={m?.modo === 'activar' ? `Activar a ${m?.u.nombre}` : `Permisos de ${m?.u.nombre}`} abierto={!!m} alCerrar={() => setM(null)}>
         {m ? (
-          <form className="formulario" onSubmit={guardarModal}>
+          <Formulario className="formulario" onSubmit={guardarModal}>
             {m.modo === 'activar' ? (
               <p>¿Verificaste la identidad de <b>{m.u.nombre}</b> ({m.u.correo}) por un canal corporativo?</p>
             ) : null}
@@ -187,7 +188,7 @@ export function AdminUsuarios() {
                 {ocupado ? 'Guardando…' : m.modo === 'activar' ? 'Activar cuenta' : 'Guardar permisos'}
               </button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
     </div>

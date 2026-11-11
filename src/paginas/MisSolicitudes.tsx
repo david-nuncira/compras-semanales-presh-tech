@@ -78,13 +78,19 @@ export function MisSolicitudes() {
 
   return (
     <div className="contenido">
-      <h1>Mis solicitudes</h1>
+      <span className="sobre-titulo">COMPRAS · MI ÁREA</span>
+      <h1>Solicitudes de mi área</h1>
+      <p className="texto-suave">Crea un borrador, agrega los artículos y envíalo solo cuando esté completo. Primero lo revisa tu jefe y después llega a Compras.</p>
+      <section className="inicio-solicitud">
+        <div><span className="sobre-titulo">NUEVA NECESIDAD</span><h2>¿Qué necesitas comprar?</h2><p>Empieza con lo básico. Tus datos no se pierden y puedes continuar más tarde.</p>
+          <ol className="mini-ruta" aria-label="Pasos para crear una solicitud"><li><span>1</span><div><b>Crea el borrador</b><small>Aún es privado.</small></div></li><li><span>2</span><div><b>Agrega los artículos</b><small>Con cantidades y detalles.</small></div></li><li><span>3</span><div><b>Envía a tu jefe</b><small>Compras continúa después.</small></div></li></ol>
+        </div>
+        <Link className="boton-primario boton-inicio enlace-boton" to="/nueva-solicitud"><span aria-hidden="true">+</span> Empezar mi solicitud</Link>
+      </section>
       {devueltas > 0 ? (
-        <p className="mensaje mensaje-error">
-          Tienes {devueltas} solicitud(es) devuelta(s) para corrección.{' '}
-          <button type="button" className="enlace" onClick={() => cambiar({ bandeja: 'devueltas' })}>Verlas</button>
-        </p>
+        <section className="aviso-devolucion"><span aria-hidden="true">↩</span><div><b>Tienes {devueltas} solicitud(es) para corregir</b><p>Abre cada una, revisa el comentario del jefe y vuelve a enviarla cuando esté lista.</p></div><button type="button" className="boton-secundario" onClick={() => cambiar({ bandeja: 'devueltas' })}>Ver para corregir</button></section>
       ) : null}
+      <div className="seccion-cabecera solicitudes-cabecera"><div><span className="sobre-titulo">SEGUIMIENTO</span><h2>Mis solicitudes</h2><p className="texto-suave">Elige una pestaña para encontrarla más rápido. Si una solicitud vuelve a ti, aparecerá en “Devueltas”.</p></div><span className="insignia-suave">{total} en esta vista</span></div>
       <Pestanas etiqueta="Bandejas de solicitudes" activa={bandeja} alCambiar={(k) => cambiar({ bandeja: k })}
         pestanas={[
           { id: 'todas', titulo: 'Todas' }, { id: 'borradores', titulo: 'Borradores' },
@@ -102,7 +108,7 @@ export function MisSolicitudes() {
       </div>
       <MensajeError texto={error} flotante />
       {!filas ? <Cargando /> : filas.length === 0 ? (
-        <div className="tarjeta"><p>No hay solicitudes en esta bandeja. Crea una con “Nueva solicitud”: puedes guardarla como borrador y enviarla cuando esté lista.</p></div>
+        <div className="estado-vacio"><span className="estado-icono" aria-hidden="true">+</span><h2>No hay solicitudes en esta vista</h2><p>Puedes crear una como borrador. Nadie la verá hasta que la envíes a aprobación.</p><Link className="boton-primario enlace-boton" to="/nueva-solicitud">Crear mi primera solicitud</Link></div>
       ) : (
         <div className="tabla-envoltura">
           <table className="tabla">

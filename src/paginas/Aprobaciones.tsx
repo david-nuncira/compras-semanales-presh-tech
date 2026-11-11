@@ -1,3 +1,6 @@
+import { EstadoVacio } from '../componentes/UI.tsx';
+import { EstadoError } from '../componentes/UI.tsx';
+import { Formulario } from '../componentes/UI.tsx';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, rpc, limpiarError, nuevoOp } from '../supabase.ts';
@@ -26,6 +29,8 @@ export function Aprobaciones() {
   const [ocupado, setOcupado] = useState(false);
 
   const cargar = useCallback(async () => {
+    setError(null);
+    try {
     if (!perfil) return;
     const base = supabase.from('aprobaciones')
       .select('*, articulos:articulo_id (id, nombre, solicitud_id, solicitudes:solicitud_id (numero, solicitante_id))')
@@ -40,6 +45,7 @@ export function Aprobaciones() {
     if (rp.error) { setError(limpiarError(rp.error.message)); return; }
     setPendientes((rp.data ?? []) as unknown as AprobacionConContexto[]);
     setHistoricas((rh.data ?? []) as unknown as AprobacionConContexto[]);
+    } catch (e) { setError(limpiarError(e instanceof Error ? e.message : String(e))); }
   }, [perfil]);
 
   useActualizacionPeriodica(cargar, 60000, [cargar]);
@@ -82,8 +88,8 @@ export function Aprobaciones() {
       <MensajeError texto={error} />
       <MensajeExito texto={exito} />
       <h2>Pendientes</h2>
-      {!pendientes ? <Cargando /> : pendientes.length === 0 ? (
-        <div className="tarjeta"><p>No tienes aprobaciones pendientes.</p></div>
+      {!pendientes ? (error ? <EstadoError alReintentar={() => void cargar()} /> : <Cargando />) : pendientes.length === 0 ? (
+        <EstadoVacio titulo="Sin registros en esta vista">No tienes aprobaciones pendientes.</EstadoVacio>
       ) : pendientes.map((ap) => (
         <div className="tarjeta" key={ap.id}>
           <p>
@@ -114,7 +120,7 @@ export function Aprobaciones() {
 
       <Modal titulo={decision?.aprobar ? 'Confirmar aprobación' : 'Confirmar rechazo'} abierto={!!decision} alCerrar={() => setDecision(null)}>
         {decision ? (
-          <form className="formulario" onSubmit={decidir}>
+          <Formulario className="formulario" onSubmit={decidir}>
             <p>{versionTexto(decision.ap)}</p>
             <Campo etiqueta={decision.aprobar ? 'Comentario (opcional)' : 'Motivo del rechazo (obligatorio)'} requerido={!decision.aprobar}>
               <textarea rows={3} value={decision.comentario} onChange={(e) => setDecision({ ...decision, comentario: e.target.value })} />
@@ -126,7 +132,7 @@ export function Aprobaciones() {
                 {ocupado ? 'Guardando…' : decision.aprobar ? 'Aprobar' : 'Rechazar'}
               </button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
     </div>

@@ -27,6 +27,7 @@ const ConsultaGlobal = lazy(() => import('./paginas/ConsultaGlobal.tsx').then((m
 const Notificaciones = lazy(() => import('./paginas/Notificaciones.tsx').then((m) => ({ default: m.Notificaciones })));
 const AdminUsuarios = lazy(() => import('./paginas/AdminUsuarios.tsx').then((m) => ({ default: m.AdminUsuarios })));
 const AdminEstructura = lazy(() => import('./paginas/AdminEstructura.tsx').then((m) => ({ default: m.AdminEstructura })));
+const AdminOrganigrama = lazy(() => import('./paginas/AdminOrganigrama.tsx').then((m) => ({ default: m.AdminOrganigrama })));
 const AdminCalendario = lazy(() => import('./paginas/AdminCalendario.tsx').then((m) => ({ default: m.AdminCalendario })));
 const AdminCatalogos = lazy(() => import('./paginas/AdminCatalogos.tsx').then((m) => ({ default: m.AdminCatalogos })));
 const AdminAuditoria = lazy(() => import('./paginas/AdminAuditoria.tsx').then((m) => ({ default: m.AdminAuditoria })));
@@ -122,6 +123,7 @@ export function App() {
           <Route path="/reportes" element={<Protegida permite={(p) => p.gestor || p.consultaGlobal}><Reportes /></Protegida>} />
           <Route path="/admin" element={<Protegida permite={(p) => p.adminUsuarios}><AdminUsuarios /></Protegida>} />
           <Route path="/admin/estructura" element={<Protegida permite={(p) => p.adminCatalogos}><AdminEstructura /></Protegida>} />
+          <Route path="/admin/organigrama" element={<Protegida permite={(p) => p.adminGeneral}><AdminOrganigrama /></Protegida>} />
           <Route path="/admin/calendario" element={<Protegida permite={(p) => p.adminCatalogos}><AdminCalendario /></Protegida>} />
           <Route path="/admin/catalogos" element={<Protegida permite={(p) => p.adminCatalogos}><AdminCatalogos /></Protegida>} />
           <Route path="/admin/auditoria" element={<Protegida permite={(p) => p.adminGeneral}><AdminAuditoria /></Protegida>} />

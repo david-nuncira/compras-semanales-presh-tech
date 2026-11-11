@@ -14,7 +14,7 @@ export function useAdjuntosArticulos(ids: string[], refresco = 0) {
   useEffect(() => {
     if (ids.length === 0) { setPorArticulo({}); return; }
     let vivo = true;
-    supabase.from('adjuntos').select('*').eq('entidad', 'articulo').in('entidad_id', ids)
+    supabase.from('adjuntos').select('*').eq('entidad', 'articulo').is('cotizacion_id', null).in('entidad_id', ids)
       .order('creado_en', { ascending: true })
       .then(({ data, error: e }) => {
         if (!vivo) return;

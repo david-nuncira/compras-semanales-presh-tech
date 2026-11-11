@@ -1,194 +1,81 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, limpiarError } from '../supabase.ts';
+import { supabase } from '../supabase.ts';
 import { useCatalogos } from '../datos.ts';
-import { usePermisos } from '../permisos.ts';
-import { Boton, Campo, MensajeError, MensajeExito, Cargando, Modal } from '../componentes/UI.tsx';
 import { AdminNav } from '../componentes/AdminNav.tsx';
+import { UnidadesCatalogo } from '../componentes/UnidadesCatalogo.tsx';
+import { usePermisos } from '../permisos.ts';
+import { Campo, Formulario, MensajeError, Cargando, EstadoError } from '../componentes/UI.tsx';
+import { useNotificaciones } from '../componentes/Notificaciones.tsx';
 
-/** Renombrar sin perder historia: se pide el nombre nuevo en un diálogo accesible. */
-interface Renombrar { pregunta: string; actual: string; aplicar: (nuevo: string) => void }
-
-/**
- * Catálogos administrables: áreas, centros de costo y proveedores.
- * Los registros no se borran: se desactivan (conservan su historia).
- */
 export function AdminCatalogos() {
   const { cat, error: errorCat, recargar } = useCatalogos(true);
   const permisos = usePermisos();
-  const [nUnidad, setNUnidad] = useState({ nombre: '', abreviatura: '' });
-  const [error, setError] = useState<string | null>(null);
-  const [exito, setExito] = useState<string | null>(null);
+  const { notificar, cerrarClave } = useNotificaciones();
+  const [ocupado, setOcupado] = useState(false);
+  const bloqueo = useRef(false);
   const [nArea, setNArea] = useState('');
-  const [nCCCodigo, setNCCCodigo] = useState('');
-  const [nCCNombre, setNCCNombre] = useState('');
-  const [renombrar, setRenombrar] = useState<Renombrar | null>(null);
-  const [nombreNuevo, setNombreNuevo] = useState('');
-  const abrirRenombrar = (r: Renombrar) => { setNombreNuevo(r.actual); setRenombrar(r); };
-  const [nProv, setNProv] = useState({ nombre: '', identificacion: '', contacto: '', telefono: '', correo: '' });
+  const [nCCCodigo, setNCCCodigo] = useState(''), [nCCNombre, setNCCNombre] = useState('');
+  const vacio = { nombre: '', identificacion: '', contacto: '', telefono: '', correo: '' };
+  const [nProv, setNProv] = useState(vacio);
 
-  async function ejecutar(fn: () => PromiseLike<{ error: { message: string } | null }>, msj: string) {
-    setError(null); setExito(null);
-    const { error: e } = await fn();
-    if (e) { setError(limpiarError(e.message)); return; }
-    setExito(msj);
-    await recargar();
+  async function ejecutar(fn: () => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>, mensaje: string): Promise<boolean> {
+    if (bloqueo.current) return false;
+    bloqueo.current = true; setOcupado(true); cerrarClave('catalogos-resultado');
+    try {
+      const { data, error } = await fn();
+      if (error) throw new Error(error.message);
+      if (!data?.length) throw new Error('El registro cambió o ya no está disponible. Actualiza la lista antes de intentarlo de nuevo.');
+      notificar(mensaje, 'exito', 'catalogos-resultado');
+      await recargar();
+      return true;
+    } catch (error) {
+      notificar(error instanceof Error ? error.message : 'No pudimos confirmar el resultado. Actualiza la lista antes de repetir la operación.', 'error', 'catalogos-resultado');
+      return false;
+    } finally { bloqueo.current = false; setOcupado(false); }
   }
-
-  if (!cat) return <div className="contenido"><AdminNav /><Cargando /></div>;
-
-  return (
-    <div className="contenido">
-      <h1>Administración · Catálogos</h1>
-      <AdminNav />
-      <p className="texto-suave">
-        Los catálogos oficiales los define Compras/la empresa; los de demostración son
-        claramente ficticios. Desactivar no borra la historia: un catálogo inactivo no aparece en
-        solicitudes nuevas, pero los registros antiguos lo conservan. Los jefes y los centros de
-        costo permitidos por área se configuran en <Link to="/admin/estructura">Estructura</Link>.
-      </p>
-      <MensajeError texto={errorCat ?? error} flotante alCerrar={() => setError(null)} />
-      <MensajeExito texto={exito} flotante alCerrar={() => setExito(null)} />
-
-      <div className="tarjeta">
-        <h2>Unidades de medida</h2>
-        <form className="filtros" onSubmit={(e) => { e.preventDefault();
-          if (nUnidad.nombre.trim().length < 1) { setError('Escribe el nombre de la unidad.'); return; }
-          void ejecutar(() => supabase.from('unidades_medida').insert({ nombre: nUnidad.nombre.trim(), abreviatura: nUnidad.abreviatura.trim() || null }), 'Unidad creada.')
-            .then(() => setNUnidad({ nombre: '', abreviatura: '' }));
-        }}>
-          <Campo etiqueta="Nombre" requerido><input value={nUnidad.nombre} onChange={(e) => setNUnidad({ ...nUnidad, nombre: e.target.value })} /></Campo>
-          <Campo etiqueta="Abreviatura" opcional><input value={nUnidad.abreviatura} onChange={(e) => setNUnidad({ ...nUnidad, abreviatura: e.target.value })} /></Campo>
-          <button type="submit" className="boton-primario">Agregar</button>
-        </form>
-        <ul>
-          {cat.unidades.map((u) => (
-            <li key={u.id}>
-              {u.nombre}{u.abreviatura ? ` (${u.abreviatura})` : ''}{u.activo ? '' : ' (inactiva)'}
-              {' '}<button type="button" className="boton-silencioso" onClick={() => {
-                abrirRenombrar({ pregunta: 'Nuevo nombre de la unidad', actual: u.nombre, aplicar: (t) =>
-                  void ejecutar(() => supabase.from('unidades_medida').update({ nombre: t }).eq('id', u.id).eq('version', u.version), 'Unidad renombrada.') });
-              }}>Renombrar</button>
-              <button type="button" className="boton-silencioso" onClick={() =>
-                void ejecutar(() => supabase.from('unidades_medida').update({ activo: !u.activo }).eq('id', u.id).eq('version', u.version),
-                  u.activo ? 'Unidad desactivada.' : 'Unidad reactivada.')}>
-                {u.activo ? 'Desactivar' : 'Reactivar'}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="tarjeta">
-        <h2>Áreas</h2>
-        <form className="filtros" onSubmit={(e) => { e.preventDefault();
-          if (nArea.trim().length < 2) { setError('Nombre de área muy corto.'); return; }
-          void ejecutar(() => supabase.from('areas').insert({ nombre: nArea.trim() }), 'Área creada.').then(() => setNArea(''));
-        }}>
-          <Campo etiqueta="Nueva área"><input value={nArea} onChange={(e) => setNArea(e.target.value)} /></Campo>
-          <button type="submit" className="boton-primario">Agregar</button>
-        </form>
-        <ul>
-          {cat.areas.map((a) => (
-            <li key={a.id}>
-              {a.nombre} {a.activo ? '' : ' (inactiva)'}
-              {' '}<button type="button" className="boton-silencioso" onClick={() => {
-                abrirRenombrar({ pregunta: 'Nuevo nombre del área', actual: a.nombre, aplicar: (t) =>
-                  void ejecutar(() => supabase.from('areas').update({ nombre: t }).eq('id', a.id).eq('version', a.version), 'Área renombrada.') });
-              }}>Renombrar</button>
-              {' '}<button type="button" className="boton-silencioso" onClick={() =>
-                void ejecutar(() => supabase.from('areas').update({ activo: !a.activo }).eq('id', a.id).eq('version', a.version),
-                  a.activo ? 'Área desactivada.' : 'Área reactivada.')}>
-                {a.activo ? 'Desactivar' : 'Reactivar'}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="tarjeta">
-        <h2>Centros de costo</h2>
-        <form className="filtros" onSubmit={(e) => { e.preventDefault();
-          if (nCCCodigo.trim().length < 2 || nCCNombre.trim().length < 2) { setError('Código y nombre son obligatorios.'); return; }
-          void ejecutar(() => supabase.from('centros_costo').insert({ codigo: nCCCodigo.trim(), nombre: nCCNombre.trim() }), 'Centro de costo creado.')
-            .then(() => { setNCCCodigo(''); setNCCNombre(''); });
-        }}>
-          <Campo etiqueta="Código"><input value={nCCCodigo} onChange={(e) => setNCCCodigo(e.target.value)} /></Campo>
-          <Campo etiqueta="Nombre"><input value={nCCNombre} onChange={(e) => setNCCNombre(e.target.value)} /></Campo>
-          <button type="submit" className="boton-primario">Agregar</button>
-        </form>
-        <ul>
-          {cat.centros.map((c) => (
-            <li key={c.id}>
-              <b>{c.codigo}</b> · {c.nombre} {c.activo ? '' : ' (inactivo)'}
-              {' '}<button type="button" className="boton-silencioso" onClick={() => {
-                abrirRenombrar({ pregunta: `Nuevo nombre para ${c.codigo}`, actual: c.nombre, aplicar: (t) =>
-                  void ejecutar(() => supabase.from('centros_costo').update({ nombre: t }).eq('id', c.id).eq('version', c.version), 'Centro de costo renombrado.') });
-              }}>Renombrar</button>
-              {' '}<button type="button" className="boton-silencioso" onClick={() =>
-                void ejecutar(() => supabase.from('centros_costo').update({ activo: !c.activo }).eq('id', c.id).eq('version', c.version),
-                  c.activo ? 'Centro desactivado.' : 'Centro reactivado.')}>
-                {c.activo ? 'Desactivar' : 'Reactivar'}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="tarjeta">
-        <h2>Proveedores</h2>
-        <p className="texto-suave">El registro de proveedor es informativo; no constituye validación legal ni fiscal. Compras también puede crearlos desde su gestión.</p>
-        <form className="formulario" onSubmit={(e) => { e.preventDefault();
-          if (nProv.nombre.trim().length < 2) { setError('Nombre de proveedor obligatorio.'); return; }
-          void ejecutar(() => supabase.from('proveedores').insert({
-            nombre: nProv.nombre.trim(),
-            identificacion: nProv.identificacion.trim() || null,
-            contacto: nProv.contacto.trim() || null,
-            telefono: nProv.telefono.trim() || null,
-            correo: nProv.correo.trim() || null
-          }), 'Proveedor creado.').then(() => setNProv({ nombre: '', identificacion: '', contacto: '', telefono: '', correo: '' }));
-        }}>
-          <div className="fila-campos">
-            <Campo etiqueta="Nombre" requerido><input value={nProv.nombre} onChange={(e) => setNProv({ ...nProv, nombre: e.target.value })} /></Campo>
-            <Campo etiqueta="Identificación (texto informativo)"><input value={nProv.identificacion} onChange={(e) => setNProv({ ...nProv, identificacion: e.target.value })} /></Campo>
-            <Campo etiqueta="Contacto"><input value={nProv.contacto} onChange={(e) => setNProv({ ...nProv, contacto: e.target.value })} /></Campo>
-            <Campo etiqueta="Teléfono"><input value={nProv.telefono} onChange={(e) => setNProv({ ...nProv, telefono: e.target.value })} /></Campo>
-            <Campo etiqueta="Correo"><input value={nProv.correo} onChange={(e) => setNProv({ ...nProv, correo: e.target.value })} /></Campo>
-          </div>
-          <div><button type="submit" className="boton-primario">Agregar proveedor</button></div>
-        </form>
-        <ul>
-          {cat.proveedores.map((p) => (
-            <li key={p.id}>
-              {p.nombre}{p.identificacion ? ` · ${p.identificacion}` : ''}{p.activo ? '' : ' (inactivo)'}
-              {' '}{permisos.adminCatalogos ? (
-                <button type="button" className="boton-silencioso" onClick={() =>
-                  void ejecutar(() => supabase.from('proveedores').update({ activo: !p.activo }).eq('id', p.id).eq('version', p.version),
-                    p.activo ? 'Proveedor desactivado.' : 'Proveedor reactivado.')}>
-                  {p.activo ? 'Desactivar' : 'Reactivar'}
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </div>
-      <Modal titulo={renombrar?.pregunta ?? ''} abierto={!!renombrar} alCerrar={() => setRenombrar(null)}>
-        <form className="formulario" onSubmit={(e) => {
-          e.preventDefault();
-          const t = nombreNuevo.trim();
-          if (renombrar && t.length >= 2 && t !== renombrar.actual) { renombrar.aplicar(t); setRenombrar(null); }
-        }}>
-          <Campo etiqueta="Nombre" requerido
-            error={nombreNuevo.trim().length > 0 && nombreNuevo.trim().length < 2 ? 'Escribe al menos 2 caracteres.' : undefined}
-            ayuda="El registro conserva su historia: solo cambia el nombre.">
-            <input value={nombreNuevo} onChange={(e) => setNombreNuevo(e.target.value)} />
-          </Campo>
-          <div className="modal-acciones">
-            <Boton onClick={() => setRenombrar(null)}>Cancelar</Boton>
-            <Boton type="submit" variante="primario" disabled={nombreNuevo.trim().length < 2 || nombreNuevo.trim() === renombrar?.actual}>Guardar nombre</Boton>
-          </div>
-        </form>
-      </Modal>
-    </div>
-  );
+  if (!cat) return <div className="contenido"><MensajeError texto={errorCat} />{errorCat ? <EstadoError alReintentar={() => void recargar()} /> : <Cargando texto="Cargando catálogos…" />}</div>;
+  return <div className="contenido">
+    <span className="sobre-titulo">CONFIGURACIÓN DEL EQUIPO</span><h1>Catálogos</h1>
+    <p className="texto-suave">Organiza las opciones que tu equipo utiliza al solicitar y gestionar compras.</p>
+    <AdminNav />
+    <UnidadesCatalogo /><MensajeError texto={errorCat} />
+    <div className="aviso-contexto"><span aria-hidden="true">i</span><p>Desactivar una opción la oculta en nuevas solicitudes y conserva su historial. Los campos con * son obligatorios.</p></div>
+    <section className="tarjeta" aria-labelledby="titulo-areas"><div className="seccion-cabecera"><div><span className="sobre-titulo">01 · ORGANIZACIÓN</span><h2 id="titulo-areas">Áreas</h2></div><span className="insignia-suave">{cat.areas.length} registradas</span></div>
+      <Formulario className="formulario formulario-catalogo" onSubmit={async () => {
+        if (await ejecutar(() => supabase.from('areas').insert({ nombre: nArea.trim() }).select('id'), 'Área creada correctamente.')) setNArea('');
+      }}>
+        <fieldset disabled={ocupado} className="filtros">
+          <Campo etiqueta="Nombre del área" requerido ayuda="Por ejemplo, Producción o Comercial."><input value={nArea} onChange={(e) => setNArea(e.target.value)} minLength={2} maxLength={120} placeholder="Escribe el nombre del área" /></Campo>
+          <button type="submit" className="boton-primario">{ocupado ? 'Guardando…' : 'Agregar área'}</button>
+        </fieldset>
+      </Formulario>
+      <ul className="lista-catalogo">{cat.areas.map((a) => <li key={a.id}><div><strong>{a.nombre}</strong><span className={`estado-registro${a.activo ? '' : ' inactivo'}`}>{a.activo ? 'Activa' : 'Inactiva'}</span></div><button type="button" disabled={ocupado} className="boton-silencioso" onClick={() => void ejecutar(() => supabase.from('areas').update({ activo: !a.activo }).eq('id', a.id).eq('version', a.version).select('id'), a.activo ? 'Área desactivada.' : 'Área reactivada.')}>{a.activo ? 'Desactivar' : 'Reactivar'}</button></li>)}</ul>
+      {cat.areas.length === 0 ? <p className="texto-suave">Agrega la primera área para que esté disponible en las solicitudes.</p> : null}
+    </section>
+    <section className="tarjeta" aria-labelledby="titulo-centros"><div className="seccion-cabecera"><div><span className="sobre-titulo">02 · ASIGNACIÓN DEL GASTO</span><h2 id="titulo-centros">Centros de costo</h2></div><span className="insignia-suave">{cat.centros.length} registrados</span></div>
+      <Formulario className="formulario formulario-catalogo" onSubmit={async () => {
+        if (await ejecutar(() => supabase.from('centros_costo').insert({ codigo: nCCCodigo.trim(), nombre: nCCNombre.trim() }).select('id'), 'Centro de costo creado correctamente.')) { setNCCCodigo(''); setNCCNombre(''); }
+      }}>
+        <fieldset disabled={ocupado} className="filtros"><Campo etiqueta="Código" requerido><input value={nCCCodigo} onChange={(e) => setNCCCodigo(e.target.value)} minLength={2} placeholder="Código oficial" /></Campo><Campo etiqueta="Nombre del centro" requerido><input value={nCCNombre} onChange={(e) => setNCCNombre(e.target.value)} minLength={2} placeholder="Nombre del centro de costo" /></Campo><button type="submit" className="boton-primario">{ocupado ? 'Guardando…' : 'Agregar centro'}</button></fieldset>
+      </Formulario>
+      <ul className="lista-catalogo">{cat.centros.map((c) => <li key={c.id}><div><strong>{c.codigo}</strong><span>{c.nombre}</span><span className={`estado-registro${c.activo ? '' : ' inactivo'}`}>{c.activo ? 'Activo' : 'Inactivo'}</span></div><button type="button" disabled={ocupado} className="boton-silencioso" onClick={() => void ejecutar(() => supabase.from('centros_costo').update({ activo: !c.activo }).eq('id', c.id).eq('version', c.version).select('id'), c.activo ? 'Centro desactivado.' : 'Centro reactivado.')}>{c.activo ? 'Desactivar' : 'Reactivar'}</button></li>)}</ul>
+      {cat.centros.length === 0 ? <p className="texto-suave">Agrega un centro para identificar a dónde se asigna cada compra.</p> : null}
+    </section>
+    <section className="tarjeta" aria-labelledby="titulo-proveedores"><div className="seccion-cabecera"><div><span className="sobre-titulo">03 · RED DE PROVEEDORES</span><h2 id="titulo-proveedores">Proveedores</h2></div><span className="insignia-suave">{cat.proveedores.length} registrados</span></div>
+      <p className="texto-suave">Guarda sus datos para reutilizarlos al cotizar. Este registro es informativo y no constituye validación legal ni fiscal.</p>
+      <Formulario className="formulario" onSubmit={async () => {
+        if (await ejecutar(() => supabase.from('proveedores').insert({ nombre: nProv.nombre.trim(), identificacion: nProv.identificacion.trim() || null, contacto: nProv.contacto.trim() || null, telefono: nProv.telefono.trim() || null, correo: nProv.correo.trim() || null }).select('id'), 'Proveedor guardado correctamente.')) setNProv(vacio);
+      }}>
+        <fieldset disabled={ocupado} className="formulario"><div className="fila-campos">
+          <Campo etiqueta="Nombre del proveedor" requerido><input value={nProv.nombre} onChange={(e) => setNProv({ ...nProv, nombre: e.target.value })} minLength={2} placeholder="Razón social o nombre" /></Campo>
+          <Campo etiqueta="Identificación" ayuda="Dato informativo, si lo conoces."><input value={nProv.identificacion} onChange={(e) => setNProv({ ...nProv, identificacion: e.target.value })} /></Campo>
+          <Campo etiqueta="Persona de contacto"><input value={nProv.contacto} onChange={(e) => setNProv({ ...nProv, contacto: e.target.value })} autoComplete="name" /></Campo>
+          <Campo etiqueta="Teléfono"><input type="tel" value={nProv.telefono} onChange={(e) => setNProv({ ...nProv, telefono: e.target.value })} autoComplete="tel" /></Campo>
+          <Campo etiqueta="Correo electrónico"><input type="email" value={nProv.correo} onChange={(e) => setNProv({ ...nProv, correo: e.target.value })} autoComplete="email" placeholder="contacto@proveedor.com" /></Campo>
+        </div><div className="formulario-pie"><span className="texto-suave">Solo el nombre es obligatorio.</span><button type="submit" className="boton-primario">{ocupado ? 'Guardando…' : 'Agregar proveedor'}</button></div></fieldset>
+      </Formulario>
+      <ul className="lista-catalogo">{cat.proveedores.map((p) => <li key={p.id}><div><strong>{p.nombre}</strong>{p.identificacion ? <span>{p.identificacion}</span> : null}<span className={`estado-registro${p.activo ? '' : ' inactivo'}`}>{p.activo ? 'Activo' : 'Inactivo'}</span></div>{permisos.adminCatalogos ? <button type="button" disabled={ocupado} className="boton-silencioso" onClick={() => void ejecutar(() => supabase.from('proveedores').update({ activo: !p.activo }).eq('id', p.id).eq('version', p.version).select('id'), p.activo ? 'Proveedor desactivado.' : 'Proveedor reactivado.')}>{p.activo ? 'Desactivar' : 'Reactivar'}</button> : null}</li>)}</ul>
+    </section>
+  </div>;
 }

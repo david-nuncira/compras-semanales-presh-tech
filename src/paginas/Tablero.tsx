@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useSesion } from '../contexto/Sesion.tsx';
 import { usePermisos } from '../permisos.ts';
@@ -5,6 +6,7 @@ import { useResumen } from '../contexto/Resumen.tsx';
 import { EstadoVacio, EstadoError, Esqueleto, Icono, Ayuda } from '../componentes/UI.tsx';
 import { PanelAnalitico } from '../componentes/PanelAnalitico.tsx';
 
+interface Accion { icono: string; titulo: string; detalle: string; enlace: string; etiqueta: string; cantidad?: number; }
 interface Tarea { n: number | null | undefined; texto: string; enlace: string }
 /** Ficha con su ícono «i»: explica qué cuenta (el número viene de fn_resumen_tablero). */
 function Ficha({ n, texto, enlace, ayuda }: { n: number | undefined; texto: string; enlace?: string; ayuda: string }) {
@@ -36,10 +38,31 @@ export function Tablero() {
   }
   const pendientesHoy = tareas.filter((t) => (t.n ?? 0) > 0);
 
+  // Tarea principal del momento (de la experiencia guiada).
+  const prioridad = useMemo<Accion | null>(() => {
+    if (!r) return null;
+    if (p.solicitante && (r.mis_devueltas ?? 0) > 0) return { icono: '↩', titulo: 'Tienes una solicitud devuelta para corregir', detalle: 'Ábrela, revisa el comentario y envíala otra vez cuando esté lista.', enlace: '/mis-solicitudes', etiqueta: 'Corregir ahora', cantidad: r.mis_devueltas };
+    if (p.jefe && (r.aprobaciones_jefe_mias ?? 0) > 0) return { icono: '✓', titulo: 'Tienes solicitudes esperando tu aprobación', detalle: 'Tu decisión permite que Compras continúe con el proceso.', enlace: '/aprobacion-solicitudes', etiqueta: 'Revisar ahora', cantidad: r.aprobaciones_jefe_mias };
+    if (p.gestor && r.pendientes > 0) return { icono: '◌', titulo: 'Hay artículos listos para gestión de Compras', detalle: 'Puedes cotizar o registrar una compra directa cuando aplique.', enlace: '/gestion', etiqueta: 'Ir a gestión', cantidad: r.pendientes };
+    if (p.aprobadorCotizacion && r.por_aprobar > 0) return { icono: '$', titulo: 'Hay cotizaciones esperando decisión', detalle: 'Revisa el valor y los documentos adjuntos antes de aprobar o rechazar.', enlace: '/aprobaciones', etiqueta: 'Revisar cotizaciones', cantidad: r.por_aprobar };
+    if (p.solicitante) return { icono: '+', titulo: '¿Necesitas algo para tu área?', detalle: 'Crea un borrador, agrega los artículos y envíalo cuando esté completo.', enlace: '/mis-solicitudes', etiqueta: 'Crear solicitud' };
+    return null;
+  }, [r, p]);
+
   return (
     <div className="contenido">
-      <h1>Hola, {perfil?.nombre}</h1>
-      <p className="texto-suave">Estado actual de lo que tu cuenta puede ver{hora ? ` · actualizado ${hora}` : ''}. Estas fichas no dependen de los filtros del panel de compras.</p>
+      <section className="bienvenida">
+        <div><span className="sobre-titulo">TU ESPACIO DE TRABAJO</span><h1>Hola, {perfil?.nombre?.split(' ')[0] ?? 'bienvenido'}</h1><p>Elige una tarea y el sistema te mostrará solo lo que necesitas hacer.</p></div>
+        <span className="bienvenida-actualizacion">{hora ? `Actualizado ${hora}` : 'Preparando tu resumen…'}</span>
+      </section>
+      {prioridad ? (
+        <section className="accion-destacada" aria-label="Tarea principal">
+          <span className="accion-destacada-icono" aria-hidden="true">{prioridad.icono}</span>
+          <div><span className="sobre-titulo">LO MÁS IMPORTANTE AHORA</span><h2>{prioridad.titulo}</h2><p>{prioridad.detalle}</p></div>
+          <Link className="boton-primario enlace-boton" to={prioridad.enlace}>{prioridad.etiqueta}{prioridad.cantidad ? ` (${prioridad.cantidad})` : ''}</Link>
+        </section>
+      ) : null}
+      <p className="texto-suave">Estas fichas muestran el estado actual de lo que tu cuenta puede ver y no dependen de los filtros del panel de compras.</p>
       <section className="tarjeta" aria-labelledby="hoy-titulo">
         <h2 id="hoy-titulo">Lo que tienes que hacer hoy</h2>
         {errorResumen && !r ? <EstadoError mensaje={errorResumen} alReintentar={() => void recargar()} />
@@ -57,7 +80,10 @@ export function Tablero() {
       </section>
       {!r ? null : (
         <>
-          {p.solicitante ? (
+      {p.solicitante ? <section className="tarjeta guia-solicitud"><div className="seccion-cabecera"><div><span className="sobre-titulo">GUÍA RÁPIDA</span><h2>Así avanza una compra</h2></div><Link to="/mis-solicitudes">Ver mis solicitudes →</Link></div>
+          <ol className="pasos-solicitud"><li><span>1</span><div><b>Armas el borrador</b><p>Indicas el centro de costo y agregas los artículos. Aún no llega a nadie.</p></div></li><li><span>2</span><div><b>Tu jefe revisa</b><p>Cuando la envías, primero la recibe el jefe de tu área.</p></div></li><li><span>3</span><div><b>Compras continúa</b><p>Tras la aprobación, Compras cotiza o realiza la compra y te mantiene informado.</p></div></li></ol>
+        </section> : null}
+            {p.solicitante ? (
             <div className="tarjeta">
               <h2>Mis solicitudes</h2>
               <div className="tablero">

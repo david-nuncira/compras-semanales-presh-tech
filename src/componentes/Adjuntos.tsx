@@ -1,251 +1,166 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { supabase, rpc, limpiarError, nuevoOp } from '../supabase.ts';
-import { CONFIG } from '../config.ts';
 import type { Adjunto, EntidadAdjunto } from '../tipos.ts';
 import { comprimirSiConviene, tipoFinal, extensionDe } from '../util/imagenes.ts';
-import { MensajeError, MensajeExito, Cargando, Modal, ModalConfirmar, Boton, Icono } from './UI.tsx';
+import { MensajeError, Cargando, EstadoError, Modal } from './UI.tsx';
+import { useNotificaciones } from './Notificaciones.tsx';
 import { fmtFechaHora } from '../util/fechas.ts';
+import './cotizaciones.css';
 
 const TIPOS_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-const MAX_MB = 5;
+interface Preparado { id: string; nombre: string; blob: Blob; mime: string; url: string; op: string; ruta: string | null; subida: boolean; }
+interface Vista { url: string; nombre: string; mime: string; }
+const tamano = (bytes: number) => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
-interface Carga { nombre: string; progreso: number; estado: 'subiendo' | 'registrando' | 'error'; error?: string; }
-
-/**
- * Sube con XMLHttpRequest al endpoint autenticado de Storage para mostrar
- * el progreso real. Usa el JWT de la sesión vigente (las políticas RLS del
- * bucket se evalúan en cada petición).
- */
-function subirConProgreso(ruta: string, cuerpo: Blob, tipo: string, token: string,
-                          alAvanzar: (p: number) => void): Promise<void> {
-  return new Promise((resolver, rechazar) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${CONFIG.SUPABASE_URL}/storage/v1/object/adjuntos/${ruta.split('/').map(encodeURIComponent).join('/')}`);
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    xhr.setRequestHeader('apikey', CONFIG.SUPABASE_ANON_KEY);
-    xhr.setRequestHeader('x-upsert', 'false');
-    xhr.setRequestHeader('Content-Type', tipo);
-    xhr.upload.onprogress = (e) => { if (e.lengthComputable) alAvanzar(Math.round((e.loaded / e.total) * 100)); };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) { resolver(); return; }
-      let msj = `El almacenamiento rechazó el archivo (${xhr.status}).`;
-      try { const j = JSON.parse(xhr.responseText); if (j?.message) msj = limpiarError(String(j.message)); } catch { /* sin detalle */ }
-      if (xhr.status === 403 || xhr.status === 400) msj += ' Verifica que puedas adjuntar en este estado y que no superes el límite de archivos.';
-      rechazar(new Error(msj));
-    };
-    xhr.onerror = () => rechazar(new Error('Se perdió la conexión durante la subida. Intenta de nuevo.'));
-    xhr.send(cuerpo);
-  });
+/** Cada miniatura se obtiene con la sesión vigente, sin publicar URLs del bucket. */
+function MiniaturaPrivada({ adjunto }: { adjunto: Adjunto }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let activa = true, creada: string | null = null;
+    if (adjunto.mime.startsWith('image/')) void supabase.storage.from('adjuntos').download(adjunto.ruta).then(({ data, error }) => {
+      if (!activa || error || !data) return;
+      creada = URL.createObjectURL(data); setUrl(creada);
+    }).catch(() => {});
+    return () => { activa = false; if (creada) URL.revokeObjectURL(creada); };
+  }, [adjunto.ruta, adjunto.mime]);
+  return url ? <img src={url} alt="" loading="lazy" onError={() => setUrl(null)} /> : <span className="archivo-formato" aria-hidden="true">{adjunto.mime === 'application/pdf' ? 'PDF' : 'IMG'}</span>;
 }
 
-/**
- * Adjuntos privados de una entidad: arrastrar y soltar, progreso, vista previa
- * de imágenes y apertura de PDF. Descarga SIEMPRE autenticada (sin enlaces
- * públicos ni firmados reutilizables).
- */
-export function Adjuntos({ entidad, entidadId, puedeSubir, maxArchivos = 3, titulo = 'Imágenes y documentos', alCambiar }: {
-  entidad: EntidadAdjunto; entidadId: string; puedeSubir: boolean; maxArchivos?: number; titulo?: string;
-  /** Se llama después de subir o eliminar, para que la pantalla refresque sus miniaturas. */
-  alCambiar?: () => void;
+export function Adjuntos({ entidad, entidadId, puedeSubir, maxArchivos = 3, cotizacionId, titulo, alCambiar, alOcupado, alPendientes }: {
+  entidad: EntidadAdjunto; entidadId: string; puedeSubir: boolean; maxArchivos?: number;
+  cotizacionId?: string; titulo?: string; alCambiar?: () => void; alOcupado?: (valor: boolean) => void; alPendientes?: (cantidad: number) => void;
 }) {
-  const [lista, setLista] = useState<Adjunto[] | null>(null);
-  const [miniaturas, setMiniaturas] = useState<Record<string, string>>({});
-  const [cargas, setCargas] = useState<Carga[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [exito, setExito] = useState<string | null>(null);
-  const [arrastrando, setArrastrando] = useState(false);
-  const [visor, setVisor] = useState<{ url: string; nombre: string } | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const camaraRef = useRef<HTMLInputElement | null>(null);
-  const [porEliminar, setPorEliminar] = useState<Adjunto | null>(null);
-  const urlsRef = useRef<string[]>([]);
-
-  const cargar = useCallback(async () => {
-    const { data, error: e } = await supabase
-      .from('adjuntos').select('*')
-      .eq('entidad', entidad).eq('entidad_id', entidadId)
-      .order('creado_en', { ascending: true });
-    if (e) { setError(limpiarError(e.message)); return; }
-    setLista((data ?? []) as Adjunto[]);
-  }, [entidad, entidadId]);
-
-  useEffect(() => { void cargar(); }, [cargar]);
-
-  // Miniaturas de imágenes (descarga autenticada → URL local temporal).
+  const [lista, setLista] = useState<Adjunto[] | null>(null), [error, setError] = useState<string | null>(null);
+  const [subiendo, setSubiendo] = useState(false), [trabajando, setTrabajando] = useState(false), [preparando, setPreparando] = useState(false);
+  const [pendientes, setPendientes] = useState<Preparado[]>([]), [arrastrando, setArrastrando] = useState(false);
+  const [porEliminar, setPorEliminar] = useState<Adjunto | null>(null), [vista, setVista] = useState<Vista | null>(null);
+  const contenedor = useRef<HTMLElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null), camaraRef = useRef<HTMLInputElement | null>(null), bloqueo = useRef(false), pendientesRef = useRef<Preparado[]>([]), montado = useRef(true);
+  const onOcupadoRef = useRef(alOcupado); onOcupadoRef.current = alOcupado;
+  const onPendientesRef = useRef(alPendientes); onPendientesRef.current = alPendientes;
+  const ayudaId = useId();
+  const { notificar } = useNotificaciones();
+  const ocupado = subiendo || trabajando || preparando;
+  useEffect(() => { onOcupadoRef.current?.(ocupado); }, [ocupado]);
+  useEffect(() => { pendientesRef.current = pendientes; onPendientesRef.current?.(pendientes.length); }, [pendientes]);
+  useEffect(() => { montado.current = true; return () => { montado.current = false; pendientesRef.current.forEach(p => URL.revokeObjectURL(p.url)); onOcupadoRef.current?.(false); onPendientesRef.current?.(0); }; }, []);
+  useEffect(() => () => { if (vista) URL.revokeObjectURL(vista.url); }, [vista]);
   useEffect(() => {
-    let vivo = true;
-    (async () => {
-      for (const a of lista ?? []) {
-        if (!a.mime.startsWith('image/') || miniaturas[a.id]) continue;
-        const { data } = await supabase.storage.from('adjuntos').download(a.ruta);
-        if (!vivo || !data) continue;
-        const url = URL.createObjectURL(data);
-        urlsRef.current.push(url);
-        setMiniaturas((m) => ({ ...m, [a.id]: url }));
+    const avisar = (e: BeforeUnloadEvent) => { if (pendientesRef.current.length || bloqueo.current) e.preventDefault(); };
+    window.addEventListener('beforeunload', avisar); return () => window.removeEventListener('beforeunload', avisar);
+  }, []);
+  const cargar = useCallback(async (limpiar = true) => {
+    if (limpiar) setError(null);
+    try {
+      let consulta = supabase.from('adjuntos').select('*').eq('entidad', entidad).eq('entidad_id', entidadId);
+      if (entidad === 'articulo') consulta = cotizacionId ? consulta.eq('cotizacion_id', cotizacionId) : consulta.is('cotizacion_id', null);
+      const { data, error: e } = await consulta.order('creado_en', { ascending: true });
+      if (e) throw new Error(limpiarError(e.message));
+      if (montado.current) setLista((data ?? []) as Adjunto[]);
+    } catch (e) { if (montado.current) setError(e instanceof Error ? e.message : String(e)); }
+  }, [entidad, entidadId, cotizacionId]);
+  useEffect(() => { setLista(null); setPendientes(prev => { prev.forEach(p => URL.revokeObjectURL(p.url)); return []; }); void cargar(); }, [cargar]);
+
+  async function preparar(archivos: File[]) {
+    if (bloqueo.current || !puedeSubir || !lista) return;
+    bloqueo.current = true; setPreparando(true); setError(null);
+    const nuevos: Preparado[] = [], errores: string[] = [];
+    const disponibles = maxArchivos - lista.length - pendientesRef.current.length;
+    try {
+      for (const archivo of archivos.slice(0, Math.max(0, disponibles))) {
+        if (!TIPOS_PERMITIDOS.includes(archivo.type)) { errores.push(`${archivo.name}: elige JPG, PNG, WebP o PDF.`); continue; }
+        if (!archivo.size) { errores.push(`${archivo.name}: está vacío.`); continue; }
+        if (archivo.size > 25 * 1048576) { errores.push(`${archivo.name}: es demasiado grande. Usa un archivo de hasta 5 MB o una imagen menor de 25 MB para comprimir.`); continue; }
+        const blob = await comprimirSiConviene(archivo), mime = tipoFinal(archivo, blob);
+        if (blob.size > 5 * 1048576) { errores.push(`${archivo.name}: supera 5 MB incluso tras comprimirlo.`); continue; }
+        nuevos.push({ id: nuevoOp(), nombre: archivo.name, blob, mime, url: URL.createObjectURL(blob), op: nuevoOp(), ruta: null, subida: false });
       }
-    })();
-    return () => { vivo = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lista]);
+      if (archivos.length > disponibles) errores.push(`Puedes adjuntar hasta ${maxArchivos} archivos en este apartado. Solo se prepararon los que caben.`);
+      if (montado.current) { setPendientes(prev => [...prev, ...nuevos]); if (nuevos.length) contenedor.current?.dispatchEvent(new Event('input', { bubbles: true })); if (errores.length) setError(errores.join(' ')); }
+      else nuevos.forEach(p => URL.revokeObjectURL(p.url));
+    } catch (e) { nuevos.forEach(p => URL.revokeObjectURL(p.url)); setError(limpiarError(e instanceof Error ? e.message : String(e))); }
+    finally { bloqueo.current = false; setPreparando(false); if (inputRef.current) inputRef.current.value = ''; }
+  }
 
-  useEffect(() => () => { urlsRef.current.forEach((u) => URL.revokeObjectURL(u)); }, []);
-
-  const restantes = Math.max(0, maxArchivos - (lista?.length ?? 0));
-
-  async function subirArchivos(archivos: File[]) {
-    setError(null); setExito(null);
-    if (archivos.length === 0) return;
-    if (archivos.length > restantes) {
-      setError(`Puedes adjuntar ${restantes} archivo(s) más (máximo ${maxArchivos}).`);
-      archivos = archivos.slice(0, restantes);
-      if (archivos.length === 0) return;
-    }
-    const { data: ses } = await supabase.auth.getSession();
-    const token = ses.session?.access_token;
-    if (!token) { setError('Tu sesión venció. Vuelve a iniciar sesión.'); return; }
-
-    let ok = 0;
-    for (const archivo of archivos) {
-      const idx = cargas.length + ok;
-      const actualizar = (c: Partial<Carga>) => setCargas((xs) => {
-        const copia = [...xs];
-        copia[idx] = { ...(copia[idx] ?? { nombre: archivo.name, progreso: 0, estado: 'subiendo' }), ...c } as Carga;
-        return copia;
-      });
-      actualizar({ nombre: archivo.name, progreso: 0, estado: 'subiendo' });
-      try {
-        if (!TIPOS_PERMITIDOS.includes(archivo.type)) {
-          throw new Error(`"${archivo.name}": solo JPG, PNG, WebP o PDF.`);
+  async function subirPendientes() {
+    if (bloqueo.current || !pendientes.length || !puedeSubir) return;
+    bloqueo.current = true; setSubiendo(true); setError(null);
+    let guardados = 0;
+    try {
+      for (const preparado of pendientesRef.current) {
+        const ruta = preparado.ruta ?? `${entidad}/${entidadId}/${nuevoOp()}.${extensionDe(preparado.mime)}`;
+        // La ruta y op se conservan ante una respuesta ambigua: el reintento no duplica el registro.
+        preparado.ruta = ruta;
+        setPendientes(prev => prev.map(p => p.id === preparado.id ? { ...p, ruta } : p));
+        if (!preparado.subida) {
+          const { error: eSubida } = await supabase.storage.from('adjuntos').upload(ruta, preparado.blob, { contentType: preparado.mime, upsert: false });
+          if (eSubida && !/already exists|duplicate|resource exists/i.test(eSubida.message)) throw new Error(limpiarError(eSubida.message));
+          preparado.subida = true;
+          setPendientes(prev => prev.map(p => p.id === preparado.id ? { ...p, subida: true } : p));
         }
-        const comprimido = await comprimirSiConviene(archivo);
-        if (comprimido.size > MAX_MB * 1024 * 1024) {
-          throw new Error(`"${archivo.name}" supera ${MAX_MB} MB incluso comprimido.`);
-        }
-        const mime = tipoFinal(archivo, comprimido);
-        const ruta = `${entidad}/${entidadId}/${crypto.randomUUID()}.${extensionDe(mime)}`;
-        await subirConProgreso(ruta, comprimido, mime, token, (p) => actualizar({ progreso: p }));
-        actualizar({ estado: 'registrando', progreso: 100 });
-        try {
-          await rpc('fn_registrar_adjunto', {
-            p_entidad: entidad, p_entidad_id: entidadId, p_ruta: ruta,
-            p_nombre_original: archivo.name, p_mime: mime, p_tamano: comprimido.size, p_op: nuevoOp()
-          });
-        } catch (eRegistro) {
-          // Sin registros falsos: si no quedó registrado, se retira el archivo.
-          await supabase.storage.from('adjuntos').remove([ruta]);
-          throw eRegistro;
-        }
-        ok++;
-      } catch (e) {
-        actualizar({ estado: 'error', error: e instanceof Error ? e.message : String(e) });
+        const args = { p_ruta: ruta, p_nombre_original: preparado.nombre, p_mime: preparado.mime, p_tamano: preparado.blob.size, p_op: preparado.op };
+        await rpc(cotizacionId ? 'fn_registrar_adjunto_cotizacion' : 'fn_registrar_adjunto', cotizacionId ? { ...args, p_cotizacion: cotizacionId } : { ...args, p_entidad: entidad, p_entidad_id: entidadId });
+        guardados++; URL.revokeObjectURL(preparado.url);
+        setPendientes(prev => prev.filter(p => p.id !== preparado.id));
       }
-    }
-    setCargas((xs) => xs.filter((c) => c.estado === 'error'));
-    if (ok > 0) { setExito(`${ok} archivo(s) adjuntado(s) correctamente.`); alCambiar?.(); }
-    if (inputRef.current) inputRef.current.value = '';
-    if (camaraRef.current) camaraRef.current.value = '';
-    await cargar();
+      notificar(`${guardados === 1 ? 'Archivo guardado' : `${guardados} archivos guardados`} correctamente.`, 'exito');
+    } catch (e) {
+      setError(`${guardados ? `${guardados} archivo(s) guardado(s). ` : ''}${limpiarError(e instanceof Error ? e.message : String(e))} Conservamos los archivos pendientes para que puedas reintentar.`);
+    } finally { bloqueo.current = false; setSubiendo(false); await cargar(false); alCambiar?.(); }
   }
 
-  async function abrir(a: Adjunto) {
-    setError(null);
-    const { data, error: e } = await supabase.storage.from('adjuntos').download(a.ruta);
-    if (e || !data) { setError('No fue posible abrir el archivo (verifica que tu cuenta siga activa).'); return; }
-    const url = URL.createObjectURL(data);
-    urlsRef.current.push(url);
-    if (a.mime.startsWith('image/')) { setVisor({ url, nombre: a.nombre_original }); return; }
-    window.open(url, '_blank', 'noopener');
+  function descargarBlob(url: string, nombre: string, revocar = true) {
+    const enlace = document.createElement('a'); enlace.href = url; enlace.download = nombre; document.body.appendChild(enlace); enlace.click(); enlace.remove();
+    if (revocar) setTimeout(() => URL.revokeObjectURL(url), 10000);
   }
-
-  async function descargar(a: Adjunto) {
-    const { data, error: e } = await supabase.storage.from('adjuntos').download(a.ruta);
-    if (e || !data) { setError('No fue posible descargar el archivo.'); return; }
-    const url = URL.createObjectURL(data);
-    const enlace = document.createElement('a');
-    enlace.href = url; enlace.download = a.nombre_original;
-    document.body.appendChild(enlace); enlace.click(); document.body.removeChild(enlace);
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  async function abrir(a: Adjunto, previsualizar = false) {
+    if (bloqueo.current) return;
+    bloqueo.current = true; setTrabajando(true); setError(null);
+    try {
+      const { data, error: e } = await supabase.storage.from('adjuntos').download(a.ruta);
+      if (e || !data) throw new Error('No pudimos abrir el archivo. Comprueba tu conexión y que tu cuenta siga activa.');
+      const url = URL.createObjectURL(new Blob([data], { type: a.mime }));
+      if (previsualizar) setVista({ url, nombre: a.nombre_original, mime: a.mime }); else descargarBlob(url, a.nombre_original);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { bloqueo.current = false; setTrabajando(false); }
   }
-
-  // Eliminar es irreversible: se confirma en un diálogo accesible.
-  async function eliminar(a: Adjunto) {
-    setError(null);
-    await rpc('fn_eliminar_adjunto', { p_adjunto: a.id, p_motivo: 'Eliminado por quien lo subió' });
-    await supabase.storage.from('adjuntos').remove([a.ruta]);
-    setExito('Adjunto eliminado.');
-    await cargar();
-    alCambiar?.();
+  async function eliminar() {
+    if (!porEliminar || bloqueo.current) return;
+    bloqueo.current = true; setTrabajando(true); setError(null);
+    try {
+      await rpc('fn_eliminar_adjunto', { p_adjunto: porEliminar.id, p_motivo: 'Retirado desde el apartado de adjuntos' });
+      const { error: e } = await supabase.storage.from('adjuntos').remove([porEliminar.ruta]);
+      setPorEliminar(null);
+      notificar(e ? 'El adjunto se retiró. Informa al administrador: no pudimos confirmar la limpieza del archivo.' : 'Adjunto eliminado correctamente.', e ? 'aviso' : 'exito');
+      await cargar(); alCambiar?.();
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { bloqueo.current = false; setTrabajando(false); }
   }
-
-  if (lista === null) return <Cargando texto="Cargando adjuntos…" />;
-
-  return (
-    <div className="adjuntos">
-      <h4>{titulo} ({lista.length}/{maxArchivos})</h4>
-      {lista.length === 0 ? <p className="texto-suave">Sin adjuntos.</p> : (
-        <div className="galeria-adjuntos">
-          {lista.map((a) => (
-            <div className="ficha-adjunto" key={a.id}>
-              <button type="button" className="miniatura" style={{ border: 'none', cursor: 'pointer', width: '100%' }}
-                onClick={() => void abrir(a)} aria-label={`Abrir ${a.nombre_original}`}>
-                {a.mime.startsWith('image/')
-                  ? (miniaturas[a.id] ? <img src={miniaturas[a.id]} alt={a.nombre_original} /> : '🖼')
-                  : '📄'}
-              </button>
-              <div style={{ overflowWrap: 'anywhere' }}>{a.nombre_original}</div>
-              <div className="texto-suave">{(a.tamano_bytes / 1024).toFixed(0)} KB · {fmtFechaHora(a.creado_en)}</div>
-              <div className="acciones-fila">
-                <button type="button" className="boton-silencioso" onClick={() => void abrir(a)}>Ver</button>
-                <button type="button" className="boton-silencioso" onClick={() => void descargar(a)}>Descargar</button>
-                {puedeSubir ? <button type="button" className="boton-silencioso" onClick={() => setPorEliminar(a)}>Eliminar</button> : null}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {cargas.map((c, i) => (
-        <div key={i} className="ficha-adjunto" style={{ marginBottom: '0.4rem' }}>
-          <div>{c.nombre} — {c.estado === 'subiendo' ? `subiendo ${c.progreso}%` : c.estado === 'registrando' ? 'registrando…' : 'no se pudo adjuntar'}</div>
-          {c.estado !== 'error' ? <div className="progreso"><span style={{ width: `${c.progreso}%` }} /></div> : null}
-          {c.error ? <div className="campo-error">⚠ {c.error}</div> : null}
-        </div>
-      ))}
-
-      {puedeSubir && restantes > 0 ? (
-        <div
-          className={`zona-carga${arrastrando ? ' activa' : ''}`}
-          role="button" tabIndex={0}
-          onClick={() => inputRef.current?.click()}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.click(); } }}
-          onDragOver={(e) => { e.preventDefault(); setArrastrando(true); }}
-          onDragLeave={() => setArrastrando(false)}
-          onDrop={(e) => { e.preventDefault(); setArrastrando(false); void subirArchivos(Array.from(e.dataTransfer.files)); }}
-        >
-          <b>Arrastra aquí fotos o PDF</b> o haz clic para elegirlos
-          <div className="texto-suave">JPG, PNG, WebP o PDF · máximo {MAX_MB} MB cada uno · puedes agregar {restantes} más</div>
-          <input ref={inputRef} type="file" multiple hidden
-            accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
-            onChange={(e) => void subirArchivos(Array.from(e.target.files ?? []))} />
-        </div>
-      ) : null}
-      {puedeSubir && restantes > 0 ? (
-        <div className="acciones-fila" style={{ marginTop: '0.5rem' }}>
-          <Boton onClick={() => camaraRef.current?.click()}><Icono nombre="mas" /> Tomar foto con la cámara</Boton>
-          <input ref={camaraRef} type="file" accept="image/*" capture="environment" hidden
-            aria-label="Tomar foto con la cámara" onChange={(e) => void subirArchivos(Array.from(e.target.files ?? []))} />
-        </div>
-      ) : null}
-      <ModalConfirmar abierto={!!porEliminar} titulo="Eliminar adjunto" peligro etiqueta="Eliminar"
-        texto={`¿Eliminar el adjunto "${porEliminar?.nombre_original ?? ''}"? No se puede deshacer.`}
-        alConfirmar={async () => { if (porEliminar) await eliminar(porEliminar); }}
-        alCerrar={() => setPorEliminar(null)} />
-      <MensajeError texto={error} />
-      <MensajeExito texto={exito} />
-
-      <Modal titulo={visor?.nombre ?? ''} abierto={!!visor} alCerrar={() => setVisor(null)}>
-        {visor ? <img className="visor-imagen" src={visor.url} alt={visor.nombre} /> : null}
-      </Modal>
-    </div>
-  );
+  if (lista === null) return <div><MensajeError texto={error} />{error ? <EstadoError alReintentar={() => void cargar()} /> : <Cargando texto="Cargando adjuntos…" />}</div>;
+  return <section ref={contenedor} className="adjuntos adjuntos-nuevos" aria-label={titulo ?? 'Archivos de referencia'}>
+    <div className="seccion-cabecera"><h4>{titulo ?? 'Archivos de referencia'} <span className="insignia-suave">{lista.length} de {maxArchivos}</span></h4><button className="boton-silencioso" type="button" disabled={ocupado} onClick={() => void cargar()}>Actualizar adjuntos</button></div>
+    {lista.length ? <ul className="archivos-cuadricula">{lista.map(a => <li key={a.id} className="archivo-tarjeta">
+      <button type="button" className="archivo-miniatura" disabled={ocupado} aria-label={`Vista previa de ${a.nombre_original}`} onClick={() => void abrir(a, true)}><MiniaturaPrivada adjunto={a} /><span>Vista previa</span></button>
+      <div className="archivo-datos"><strong>{a.nombre_original}</strong><span className="texto-suave">{tamano(a.tamano_bytes)} · {fmtFechaHora(a.creado_en)}</span><span className="archivo-guardado">✓ Guardado · acceso privado</span></div>
+      <div className="archivo-acciones"><button type="button" className="boton-silencioso" disabled={ocupado} onClick={() => void abrir(a)}>Descargar</button>{puedeSubir ? <button type="button" className="boton-silencioso" disabled={ocupado} onClick={() => setPorEliminar(a)} aria-label={`Eliminar ${a.nombre_original}`}>Eliminar</button> : null}</div>
+    </li>)}</ul> : <p className="texto-suave">Todavía no hay archivos guardados en este apartado.</p>}
+    {puedeSubir && lista.length + pendientes.length < maxArchivos ? <div className={`archivo-zona ${arrastrando ? 'archivo-zona-activa' : ''}`} onDragOver={e => { e.preventDefault(); if (!ocupado) setArrastrando(true); }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setArrastrando(false); }} onDrop={e => { e.preventDefault(); setArrastrando(false); if (!ocupado) void preparar(Array.from(e.dataTransfer.files)); }}>
+      <span className="archivo-zona-icono" aria-hidden="true">↑</span><strong>Arrastra tus archivos aquí</strong><span className="texto-suave">o selecciónalos desde tu equipo</span>
+      <button type="button" className="boton-secundario" disabled={ocupado} onClick={() => inputRef.current?.click()}>Seleccionar archivos</button>
+      <button type="button" className="boton-secundario" disabled={ocupado} onClick={() => camaraRef.current?.click()}>Tomar foto con la cámara</button>
+      <input className="archivo-input" tabIndex={-1} ref={camaraRef} type="file" accept="image/*" capture="environment" aria-label="Tomar foto con la cámara" disabled={ocupado} onChange={e => { void preparar(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
+      <input className="archivo-input" tabIndex={-1} ref={inputRef} type="file" aria-label="Seleccionar archivos adjuntos" aria-describedby={ayudaId} accept="image/jpeg,image/png,image/webp,application/pdf" multiple disabled={ocupado} onChange={e => void preparar(Array.from(e.target.files ?? []))} />
+      <span className="campo-ayuda" id={ayudaId}>JPG, PNG, WebP o PDF · hasta 5 MB por archivo · máximo {maxArchivos}. Verás una vista previa antes de subir.</span>
+    </div> : null}
+    {pendientes.length ? <div className="archivos-pendientes"><div className="seccion-cabecera"><h4>Listos para revisar <span className="insignia-suave">Sin subir</span></h4><span className="texto-suave">Los archivos se guardan al pulsar «Subir».</span></div>
+      <ul className="archivos-cuadricula">{pendientes.map(p => <li key={p.id} className="archivo-tarjeta archivo-pendiente">
+        <button className="archivo-miniatura" type="button" disabled={ocupado} aria-label={`Revisar ${p.nombre}`} onClick={() => setVista({ url: URL.createObjectURL(p.blob), nombre: p.nombre, mime: p.mime })}>{p.mime.startsWith('image/') ? <img src={p.url} alt="" /> : <span className="archivo-formato" aria-hidden="true">PDF</span>}<span>Vista previa</span></button>
+        <div className="archivo-datos"><strong>{p.nombre}</strong><span className="texto-suave">{tamano(p.blob.size)} · {p.mime === 'application/pdf' ? 'Documento PDF' : 'Imagen preparada'}</span><span className="archivo-por-subir">● Pendiente de subir</span></div>
+        <div className="archivo-acciones"><button type="button" className="boton-silencioso" disabled={ocupado} aria-label={`Quitar ${p.nombre} de la selección`} onClick={() => { URL.revokeObjectURL(p.url); setPendientes(prev => prev.filter(x => x.id !== p.id)); }}>Quitar de la selección</button></div>
+      </li>)}</ul><button type="button" className="boton-primario" disabled={ocupado} onClick={() => void subirPendientes()}>{subiendo ? 'Subiendo archivos…' : `Subir ${pendientes.length === 1 ? 'archivo' : `${pendientes.length} archivos`}`}</button>
+    </div> : null}
+    {ocupado ? <Cargando texto={preparando ? 'Preparando las vistas previas…' : subiendo ? 'Guardando archivos de forma privada…' : 'Abriendo archivo…'} /> : null}<MensajeError texto={error} />
+    <Modal titulo="Vista previa del adjunto" abierto={!!vista} alCerrar={() => setVista(null)}>{vista ? <div className="archivo-vista"><p><strong>{vista.nombre}</strong></p>{vista.mime === 'application/pdf' ? <><iframe className="archivo-pdf" src={vista.url} title={`Documento PDF: ${vista.nombre}`} sandbox="allow-same-origin" /><p className="campo-ayuda">Si el navegador no muestra el PDF, puedes descargarlo.</p></> : <img className="adjunto-preview" src={vista.url} alt={vista.nombre} />}<button type="button" className="boton-secundario" onClick={() => descargarBlob(vista.url, vista.nombre, false)}>Descargar archivo</button></div> : null}</Modal>
+    <Modal titulo="Eliminar adjunto" abierto={!!porEliminar} ocupado={trabajando} alCerrar={() => setPorEliminar(null)}><p>¿Quieres retirar <strong>{porEliminar?.nombre_original}</strong>? La acción quedará registrada.</p><div className="modal-acciones"><button type="button" className="boton-secundario" onClick={() => setPorEliminar(null)}>Cancelar</button><button type="button" className="boton-peligro" disabled={trabajando} onClick={() => void eliminar()}>{trabajando ? 'Eliminando…' : 'Eliminar adjunto'}</button></div></Modal>
+  </section>;
 }

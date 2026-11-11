@@ -36,7 +36,7 @@ export function Notificaciones() {
       {!lista ? <Cargando /> : lista.length === 0 ? <p className="texto-suave">No tienes notificaciones.</p> : (
         <div className="tarjeta">
           {lista.map((n) => (
-            <div key={n.id} className={`notificacion${n.leida_en ? '' : ' no-leida'}`}>
+            <div key={n.id} className={`buzon-aviso${n.leida_en ? '' : ' no-leida'}`}>
               <div className="acciones-fila">
                 <b>{n.titulo}</b>
                 {!n.leida_en ? <span className="insignia-suave">Nueva</span> : null}

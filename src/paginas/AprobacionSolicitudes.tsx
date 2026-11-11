@@ -148,11 +148,13 @@ export function AprobacionSolicitudes() {
 
   return (
     <div className="contenido">
-      <h1>Pendientes de mi aprobación</h1>
-      <p className="texto-suave">
-        Solicitudes de tu área (o de la ruta superior que tienes asignada). Ninguna llega a Compras sin tu
-        decisión. No puedes decidir tus propias solicitudes. Devolver y rechazar exigen un motivo que verá el solicitante.
-      </p>
+      <section className="cabecera-aprobaciones">
+        <div><span className="sobre-titulo">APROBACIÓN DE JEFATURA</span><h1>Ayuda a que las compras avancen</h1>
+          <p>Revisa la necesidad, verifica los artículos y decide. Ninguna solicitud llega a Compras sin tu aprobación.</p>
+          <ol className="mini-ruta mini-ruta-aprobacion" aria-label="Cómo aprobar una solicitud"><li><span>1</span><div><b>Revisa</b><small>La necesidad y los artículos.</small></div></li><li><span>2</span><div><b>Decide</b><small>Aprueba, devuelve o rechaza.</small></div></li><li><span>3</span><div><b>Deja un comentario</b><small>Si necesita una corrección.</small></div></li></ol>
+        </div>
+        <div className="contador-aprobaciones" aria-label="Solicitudes pendientes"><span>Por revisar ahora</span><b>{pendientes?.length ?? '—'}</b><small>{pendientes?.length === 1 ? 'solicitud espera tu decisión' : 'solicitudes esperan tu decisión'}</small></div>
+      </section>
       <MensajeError texto={pendientes ? error : null} flotante />
       {aviso ? (aviso.ok
         ? <MensajeExito texto={aviso.texto} flotante alCerrar={() => setAviso(null)} />

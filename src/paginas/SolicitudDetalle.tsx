@@ -7,7 +7,7 @@ import { useCatalogos, useActualizacionPeriodica } from '../datos.ts';
 import type { VSolicitud, VArticulo, Movimiento, Novedad, TipoNovedad, Devolucion, EventoHistorial } from '../tipos.ts';
 import { ETIQUETA_MOVIMIENTO, ETIQUETA_NOVEDAD } from '../tipos.ts';
 import {
-  Boton, Campo, MensajeError, MensajeExito, Esqueleto, EstadoError, Icono, Modal, ModalConfirmar, InsigniaEtapa,
+  Boton, Campo, Formulario, MensajeError, MensajeExito, Esqueleto, EstadoError, Icono, Modal, ModalConfirmar, InsigniaEtapa,
   InsigniaAprobacion, InsigniaSolicitud, BotonConMotivo
 } from '../componentes/UI.tsx';
 import { LineaTiempo } from '../componentes/LineaTiempo.tsx';
@@ -29,6 +29,34 @@ const ARTICULO_VACIO: FormArticulo = {
   nombre: '', descripcion: '', cantidad: '1', unidad: 'Unidad', prioridad: 'media',
   fecha_requerida: '', justificacion: '', enlace_referencia: '', proveedor_sugerido: ''
 };
+
+type ResumenSiguientePaso = { icono: string; etiqueta: string; titulo: string; descripcion: string; tono: string };
+
+/** Traduce el estado técnico a una instrucción concreta para la persona usuaria. */
+function siguientePasoSolicitud(s: VSolicitud, esDueno: boolean, editable: boolean, articulosActivos: number, problema?: string | null): ResumenSiguientePaso {
+  if (editable && articulosActivos === 0) {
+    return { icono: '1', etiqueta: 'PRIMER PASO', titulo: 'Agrega lo que necesitas', descripcion: 'Empieza con el primer artículo. El borrador todavía es privado y puedes corregirlo cuando quieras.', tono: 'inicio' };
+  }
+  if (editable && problema) {
+    return { icono: '!', etiqueta: 'ANTES DE ENVIAR', titulo: 'Falta una configuración por completar', descripcion: problema, tono: 'atencion' };
+  }
+  if (editable) {
+    return { icono: '2', etiqueta: 'SIGUIENTE PASO', titulo: 'Revisa y envía a tu jefe', descripcion: 'Cuando estés conforme con los artículos, envíala. Tu jefe la revisará antes de que llegue a Compras.', tono: 'listo' };
+  }
+  if (s.estado === 'pendiente_aprobacion' || s.estado === 'programada') {
+    return { icono: '✓', etiqueta: 'EN REVISIÓN', titulo: 'Tu jefe está revisando la solicitud', descripcion: 'No necesitas hacer nada por ahora. Te avisaremos cuando cambie el estado.', tono: 'revision' };
+  }
+  if (s.estado === 'recibida_compras' || s.estado === 'enviada') {
+    return { icono: '→', etiqueta: 'EN COMPRAS', titulo: 'Compras continúa con el proceso', descripcion: 'El equipo revisará las opciones de compra y podrás ver el avance desde esta misma pantalla.', tono: 'compras' };
+  }
+  if (s.estado === 'en_correccion' && esDueno) {
+    return { icono: '↩', etiqueta: 'REQUIERE TU ATENCIÓN', titulo: 'Corrige y vuelve a enviar', descripcion: 'Revisa el comentario, ajusta lo necesario y envíala de nuevo. El historial se conserva.', tono: 'atencion' };
+  }
+  if (s.estado === 'rechazada' || s.estado === 'cancelada') {
+    return { icono: 'i', etiqueta: 'SOLICITUD CERRADA', titulo: 'Esta solicitud no continúa', descripcion: 'Puedes revisar el motivo en el historial. Si necesitas algo distinto, crea una nueva solicitud.', tono: 'cerrada' };
+  }
+  return { icono: 'i', etiqueta: 'SEGUIMIENTO', titulo: 'Consulta el avance aquí', descripcion: 'Esta pantalla reúne la información, los documentos y el historial de la solicitud.', tono: 'neutro' };
+}
 
 export function SolicitudDetalle() {
   const { id } = useParams<{ id: string }>();
@@ -213,6 +241,8 @@ export function SolicitudDetalle() {
     await cargar();
   }
 
+  const articulosActivos = articulos.filter((a) => a.etapa !== 'cancelado').length;
+  const siguiente = siguientePasoSolicitud(s, esDueno, editable, articulosActivos, estimacion?.problema);
   const devPendiente = devoluciones.find((d) => d.estado === 'pendiente');
   const eventoDevolucion = [...eventos].reverse().find((x) => ['decision_devuelta', 'a_correccion', 'devolucion_autorizada'].includes(x.tipo)) ?? null;
   const versionesEnviadas = eventos.filter((x) => x.tipo === 'envio');
@@ -220,13 +250,24 @@ export function SolicitudDetalle() {
 
   return (
     <div className="contenido">
-      <div className="acciones-fila">
-        <h1 style={{ margin: 0 }}>{s.numero}</h1>
-        <InsigniaSolicitud estado={s.estado} />
-        {s.es_extraordinaria ? <span className="insignia insignia-extra">Extraordinaria</span> : null}
-        {s.flujo === 'anterior' ? <span className="insignia-suave">Flujo anterior: sin aprobación previa registrada</span> : null}
-        {s.origen === 'importacion_csv' ? <span className="insignia-suave">Origen: histórico CSV</span> : null}
-      </div>
+      <section className={`solicitud-heroe solicitud-heroe-${siguiente.tono}`} aria-label="Resumen de la solicitud">
+        <div className="solicitud-identidad">
+          <button type="button" className="volver-contexto" onClick={() => navegar(-1)}>← Volver</button>
+          <span className="sobre-titulo">SOLICITUD DE COMPRA</span>
+          <div className="acciones-fila solicitud-titulo"><h1>{s.numero}</h1><InsigniaSolicitud estado={s.estado} /></div>
+          <div className="solicitud-etiquetas">
+            {s.es_extraordinaria ? <span className="insignia insignia-extra">Extraordinaria</span> : null}
+            {s.flujo === 'anterior' ? <span className="insignia-suave">Flujo anterior</span> : null}
+            {s.origen === 'importacion_csv' ? <span className="insignia-suave">Registro histórico</span> : null}
+          </div>
+        </div>
+        <div className="siguiente-paso">
+          <span className="siguiente-paso-icono" aria-hidden="true">{siguiente.icono}</span>
+          <div><span className="sobre-titulo">{siguiente.etiqueta}</span><h2>{siguiente.titulo}</h2><p>{siguiente.descripcion}</p></div>
+          {esDueno && editable && articulosActivos === 0 ? <Link className="boton-primario enlace-boton" to={`/nueva-solicitud/${s.id}?paso=2`}>Agregar primer artículo</Link> : null}
+          {esDueno && editable && articulosActivos > 0 ? <button type="button" className="boton-primario" onClick={() => void enviar()} disabled={enviando || !!estimacion?.problema}>{enviando ? 'Enviando…' : s.estado === 'borrador' ? 'Enviar a mi jefe' : 'Reenviar a mi jefe'}</button> : null}
+        </div>
+      </section>
 
       {s.estado === 'en_correccion' ? (
         <section className="devolucion" aria-labelledby="dev-titulo">
@@ -488,7 +529,7 @@ export function SolicitudDetalle() {
       {/* ---------- Formulario de artículo ---------- */}
       <Modal titulo={modalArt?.id ? 'Editar artículo' : 'Agregar artículo'} abierto={!!modalArt} alCerrar={() => setModalArt(null)}>
         {modalArt ? (
-          <form className="formulario" onSubmit={guardarArticulo} noValidate>
+          <Formulario className="formulario" onSubmit={guardarArticulo} noValidate>
             <p className="leyenda-campos"><span className="marca-obligatorio">* obligatorio</span> · los demás son opcionales.</p>
             <Campo etiqueta="Nombre del artículo" requerido error={erroresArt.nombre}>
               <input value={modalArt.nombre} maxLength={300} onChange={(e) => setModalArt({ ...modalArt, nombre: e.target.value })} />
@@ -534,13 +575,13 @@ export function SolicitudDetalle() {
               <button type="button" className="boton-secundario" onClick={() => setModalArt(null)}>Cancelar</button>
               <button type="submit" className="boton-primario">Guardar en el borrador</button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
 
       <Modal titulo="Cambiar semana objetivo" abierto={!!modalSemana} alCerrar={() => setModalSemana(null)}>
         {modalSemana ? (
-          <form className="formulario" onSubmit={async (e) => {
+          <Formulario className="formulario" onSubmit={async (e) => {
             e.preventDefault();
             if (modalSemana.motivo.trim().length < 3) { setErrorArt('Indica el motivo del cambio.'); return; }
             setErrorArt(null);
@@ -561,13 +602,13 @@ export function SolicitudDetalle() {
               <button type="button" className="boton-secundario" onClick={() => setModalSemana(null)}>Cancelar</button>
               <button type="submit" className="boton-primario">Guardar semana</button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
 
       <Modal titulo="Reportar novedad" abierto={!!modalNovedad} alCerrar={() => setModalNovedad(null)}>
         {modalNovedad ? (
-          <form className="formulario" onSubmit={crearNovedad}>
+          <Formulario className="formulario" onSubmit={crearNovedad}>
             <Campo etiqueta="Tipo de novedad" requerido>
               <select value={modalNovedad.tipo} onChange={(e) => setModalNovedad({ ...modalNovedad, tipo: e.target.value as TipoNovedad })}>
                 <option value="entrega_incorrecta">Entrega incorrecta</option>
@@ -585,7 +626,7 @@ export function SolicitudDetalle() {
               <button type="button" className="boton-secundario" onClick={() => setModalNovedad(null)}>Cancelar</button>
               <button type="submit" className="boton-primario">Registrar novedad</button>
             </div>
-          </form>
+          </Formulario>
         ) : null}
       </Modal>
     </div>

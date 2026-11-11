@@ -8,6 +8,7 @@ import { ProveedorResumen, useResumen } from '../contexto/Resumen.tsx';
 import { usePermisos } from '../permisos.ts';
 import { ENTORNO } from '../config.ts';
 import { Icono, useDialogoAccesible } from './UI.tsx';
+import { CampanaAvisos } from './CampanaAvisos.tsx';
 import type { NombreIcono } from './UI.tsx';
 
 interface ItemNav { a: string; texto: string; icono: NombreIcono; visible: boolean; n?: number; fin?: boolean }
@@ -116,7 +117,6 @@ export function Marco({ children }: { children: ReactNode }) {
   const esMovil = useEsMovil();
   const [abierto, setAbierto] = useState(false);
   const activo = !!sesion && !!perfil && perfil.estado === 'activo';
-  const sinLeer = perfil?.notificaciones_sin_leer ?? 0;
 
   useEffect(() => { setAbierto(false); }, [ubicacion.pathname]);
   useEffect(() => { if (!esMovil) setAbierto(false); }, [esMovil]);
@@ -133,10 +133,8 @@ export function Marco({ children }: { children: ReactNode }) {
               <button type="button" className="boton-secundario boton-icono" aria-label="Abrir menú" aria-expanded={abierto}
                 aria-controls="menu-principal" onClick={() => setAbierto(true)}><Icono nombre="menu" tam={20} /></button>
               <span className="barra-marca">Compras Semanales</span>
-              <NavLink to="/notificaciones" className="campana" aria-label={`Notificaciones: ${sinLeer} sin leer`}>
-                <Icono nombre="campana" tam={20} />
-                {sinLeer > 0 ? <span className="contador-nav">{sinLeer > 99 ? '99+' : sinLeer}</span> : null}
-              </NavLink>
+              {/* Consulta el buzón cada 30 s, cuenta lo no leído y avisa cuando llega algo nuevo. */}
+              <CampanaAvisos />
             </header>
             {esMovil && abierto ? <div className="lateral-fondo" onClick={() => setAbierto(false)} aria-hidden="true" /> : null}
             <Lateral abierto={abierto} alCerrar={() => setAbierto(false)} esMovil={esMovil} />

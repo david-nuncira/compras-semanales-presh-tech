@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { App } from './App.tsx';
 import { configValida, motivoConfigInvalida, ENTORNO } from './config.ts';
 import './estilos.css';
+import { ProveedorNotificaciones } from './componentes/Notificaciones.tsx';
 
 function ConfigFaltante() {
   return (
@@ -22,7 +23,7 @@ const raiz = document.getElementById('raiz');
 if (raiz) {
   ReactDOM.createRoot(raiz).render(
     <React.StrictMode>
-      {configValida() ? <App /> : <ConfigFaltante />}
+      <ProveedorNotificaciones>{configValida() ? <App /> : <ConfigFaltante />}</ProveedorNotificaciones>
     </React.StrictMode>
   );
 }

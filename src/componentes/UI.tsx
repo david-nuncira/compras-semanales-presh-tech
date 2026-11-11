@@ -1,13 +1,14 @@
-import {
-  Children, cloneElement, isValidElement, useCallback, useEffect, useId, useRef, useState
-} from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type {
-  ButtonHTMLAttributes, KeyboardEvent as TeclaReact, ReactElement, ReactNode,
-  SelectHTMLAttributes, TextareaHTMLAttributes
+  ButtonHTMLAttributes, KeyboardEvent as TeclaReact, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes
 } from 'react';
+import { createPortal } from 'react-dom';
 import type { Etapa, EstadoAprobacion, EstadoSolicitud } from '../tipos.ts';
 import { ETIQUETA_ETAPA, ETIQUETA_APROBACION, ETIQUETA_ESTADO_SOLICITUD, RECORRIDO } from '../tipos.ts';
 import { textoHace } from '../util/envio.ts';
+import { Campo, Formulario } from './Formularios.tsx';
+import { useMensajeNotificado, useNotificaciones } from './Notificaciones.tsx';
+export { Campo, Formulario } from './Formularios.tsx';
 
 /* ============================================================
    Íconos (SVG en línea, sin dependencias). Siempre acompañan a
@@ -55,42 +56,10 @@ export function Icono({ nombre, tam = 16, titulo }: { nombre: NombreIcono; tam?:
 }
 
 /* ============================================================
-   Mensajes
+   Mensajes: se muestran como avisos del sistema de notificaciones
    ============================================================ */
-
-/**
- * Mensaje de error accesible (texto, no solo color).
- * flotante: se muestra fijo en pantalla (abajo a la derecha) para que se vea
- * sin tener que desplazarse hasta el inicio de la página.
- */
-export function MensajeError({ texto, flotante, alCerrar }: { texto: string | null; flotante?: boolean; alCerrar?: () => void }) {
-  const [oculto, setOculto] = useState<string | null>(null);
-  if (!texto || oculto === texto) return null;
-  return (
-    <p className={`mensaje mensaje-error${flotante ? ' mensaje-flotante' : ''}`} role="alert">
-      <span className="mensaje-texto"><Icono nombre="alerta" /> {texto}</span>
-      {flotante ? <button type="button" className="boton-silencioso boton-icono" aria-label="Cerrar aviso"
-        onClick={() => { setOculto(texto); alCerrar?.(); }}><Icono nombre="x" /></button> : null}
-    </p>
-  );
-}
-
-export function MensajeExito({ texto, flotante, alCerrar }: { texto: string | null; flotante?: boolean; alCerrar?: () => void }) {
-  const [oculto, setOculto] = useState<string | null>(null);
-  useEffect(() => {
-    if (!flotante || !texto) return;
-    const t = setTimeout(() => setOculto(texto), 9000);
-    return () => clearTimeout(t);
-  }, [flotante, texto]);
-  if (!texto || oculto === texto) return null;
-  return (
-    <p className={`mensaje mensaje-exito${flotante ? ' mensaje-flotante' : ''}`} role="status">
-      <span className="mensaje-texto"><Icono nombre="check-circulo" /> {texto}</span>
-      {flotante ? <button type="button" className="boton-silencioso boton-icono" aria-label="Cerrar aviso"
-        onClick={() => { setOculto(texto); alCerrar?.(); }}><Icono nombre="x" /></button> : null}
-    </p>
-  );
-}
+export function MensajeError({ texto }: { texto: string | null; flotante?: boolean; alCerrar?: () => void }) { useMensajeNotificado(texto, 'error'); return null; }
+export function MensajeExito({ texto }: { texto: string | null; flotante?: boolean; alCerrar?: () => void }) { useMensajeNotificado(texto, 'exito'); return null; }
 
 /* ============================================================
    Insignias de estado: SIEMPRE color + ícono + texto.
@@ -185,8 +154,8 @@ export function LineaRecorrido({ estado, resumen }: { estado: EstadoSolicitud; r
    Estados de pantalla: carga, vacío, error, sin permiso
    ============================================================ */
 
-export function Cargando({ texto = 'Cargando…' }: { texto?: string }) {
-  return <p className="cargando" role="status">{texto}</p>;
+export function Cargando({ texto = 'Cargando información…' }: { texto?: string }) {
+  return <div className="cargando" role="status"><span className="indicador-carga" aria-hidden="true" />{texto}</div>;
 }
 
 /** Esqueleto de carga: bloques grises que ocupan el lugar del contenido. */
@@ -202,29 +171,20 @@ export function Esqueleto({ lineas = 3, alto = 16, etiqueta = 'Cargando…' }: {
 }
 
 /** Estado vacío con una acción sugerida. */
-export function EstadoVacio({ titulo, texto, accion }: { titulo: string; texto?: string; accion?: ReactNode }) {
-  return (
-    <div className="estado-vacio">
-      <Icono nombre="documento" tam={28} />
-      <h3>{titulo}</h3>
-      {texto ? <p className="texto-suave">{texto}</p> : null}
-      {accion ? <div className="acciones-fila">{accion}</div> : null}
-    </div>
-  );
+export function EstadoVacio({ titulo, texto, accion, children }: { titulo: string; texto?: string; accion?: ReactNode; children?: ReactNode }) {
+  const detalle = texto ?? children;
+  return <div className="estado-vacio"><span className="estado-icono" aria-hidden="true">▤</span><h2>{titulo}</h2>
+    {detalle ? <p>{detalle}</p> : null}{accion ? <div className="acciones-fila" style={{ justifyContent: 'center' }}>{accion}</div> : null}</div>;
 }
 
 /** Error de carga con opción de reintentar. */
-export function EstadoError({ mensaje, alReintentar }: { mensaje: string; alReintentar?: () => void }) {
-  return (
-    <div className="estado-error" role="alert">
-      <Icono nombre="alerta" tam={22} />
-      <div>
-        <p><b>No se pudo cargar.</b> {mensaje}</p>
-        {alReintentar ? <Boton variante="secundario" onClick={alReintentar}>Reintentar</Boton> : null}
-      </div>
-    </div>
-  );
+export function EstadoError({ mensaje, alReintentar }: { mensaje?: string; alReintentar?: () => void }) {
+  return <div className="estado-vacio" role="alert"><span className="estado-icono" aria-hidden="true">!</span>
+    <h2>No pudimos cargar esta información</h2>
+    <p>{mensaje ? mensaje + ' ' : ''}Comprueba tu conexión y vuelve a intentarlo. Tus registros se conservan.</p>
+    {alReintentar ? <button className="boton-secundario" type="button" onClick={alReintentar}>Volver a intentar</button> : null}</div>;
 }
+
 
 /** Pantalla sin permiso (la seguridad real está en el servidor). */
 export function SinPermiso({ texto }: { texto?: string }) {
@@ -253,44 +213,6 @@ export function Boton({ variante = 'secundario', cargando, children, className, 
       {cargando ? <span className="giro" aria-hidden="true" /> : null}
       {children}
     </button>
-  );
-}
-
-/**
- * Campo con etiqueta visible, marca de obligatorio/opcional, ayuda y error
- * junto al campo. La ayuda y el error quedan enlazados al control con
- * aria-describedby, fuera de la etiqueta.
- */
-export function Campo({ etiqueta, requerido, opcional, ayuda, error, children }: {
-  etiqueta: string; requerido?: boolean; opcional?: boolean; ayuda?: string;
-  error?: string | null; children: ReactNode;
-}) {
-  const id = useId();
-  const idAyuda = `${id}-ayuda`;
-  const idError = `${id}-error`;
-  const unico = Children.count(children) === 1 ? Children.toArray(children)[0] : null;
-  const control = isValidElement(unico) && typeof unico.type === 'string' ? (unico as ReactElement<Record<string, unknown>>) : null;
-  const describe = error ? idError : ayuda ? idAyuda : undefined;
-  const contenido = control
-    ? cloneElement(control, {
-        'aria-describedby': [control.props['aria-describedby'] as string | undefined, describe].filter(Boolean).join(' ') || undefined,
-        'aria-invalid': error ? true : control.props['aria-invalid'],
-        'aria-required': requerido ? true : control.props['aria-required']
-      })
-    : children;
-  return (
-    <div className={`campo${error ? ' campo-con-error' : ''}`}>
-      <label className="campo-rotulo">
-        <span className="campo-etiqueta">
-          {etiqueta}
-          {requerido ? <span className="marca-obligatorio"> * obligatorio</span> : null}
-          {opcional ? <span className="marca-opcional"> (opcional)</span> : null}
-        </span>
-        {contenido}
-      </label>
-      {ayuda && !error ? <span id={idAyuda} className="campo-ayuda">{ayuda}</span> : null}
-      {error ? <span id={idError} className="campo-error" role="alert"><Icono nombre="alerta" tam={14} /> {error}</span> : null}
-    </div>
   );
 }
 
@@ -366,88 +288,136 @@ export function useDialogoAccesible(abierto: boolean, alCerrar: () => void, ref:
   }, [abierto, ref]);
 }
 
-/** Diálogo modal accesible: atrapa el foco, se cierra con Esc y devuelve el foco. */
-export function Modal({ titulo, abierto, alCerrar, children }: {
-  titulo: string; abierto: boolean; alCerrar: () => void; children: ReactNode;
+const pilaModales: HTMLDivElement[] = [];
+let overflowAnterior = '';
+function actualizarPilaModales() {
+  pilaModales.forEach((elemento, indice) => {
+    const secundario = indice !== pilaModales.length - 1;
+    elemento.inert = secundario;
+    elemento.setAttribute('aria-hidden', String(secundario));
+    if (elemento.parentElement) elemento.parentElement.style.zIndex = String(1000 + indice * 10);
+  });
+}
+
+/** Un diálogo conserva el foco y exige confirmar el descarte de cambios. */
+export function Modal({ titulo, abierto, alCerrar, children, ocupado = false, lateral = false }: {
+  titulo: string; abierto: boolean; alCerrar: () => void; children: ReactNode; ocupado?: boolean; lateral?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const idTitulo = useId();
-  useDialogoAccesible(abierto, alCerrar, ref);
+  const dialogo = useRef<HTMLDivElement>(null);
+  const host = useRef<HTMLDivElement>(null);
+  const cambios = useRef(false);
+  const cerrarRef = useRef(alCerrar);
+  cerrarRef.current = alCerrar;
+  const ocupadoRef = useRef(ocupado);
+  ocupadoRef.current = ocupado;
+  const [confirmarSalida, setConfirmarSalida] = useState(false);
+  const confirmacionRef = useRef(confirmarSalida);
+  confirmacionRef.current = confirmarSalida;
+  const { registrarModal, notificar } = useNotificaciones();
+  const pedirCerrar = useCallback(() => {
+    if (ocupadoRef.current || dialogo.current?.querySelector('form[aria-busy="true"]')) {
+      notificar('Espera a que termine la operación antes de cerrar esta ventana.', 'info', 'modal-ocupado'); return;
+    }
+    if (cambios.current) setConfirmarSalida(true); else cerrarRef.current();
+  }, [notificar]);
+  useEffect(() => {
+    if (!abierto) return;
+    cambios.current = false;
+    setConfirmarSalida(false);
+    const anterior = document.activeElement as HTMLElement | null;
+    const elemento = dialogo.current;
+    if (!elemento) return;
+    if (!pilaModales.length) overflowAnterior = document.body.style.overflow;
+    pilaModales.push(elemento);
+    actualizarPilaModales();
+    document.body.style.overflow = 'hidden';
+    const quitarHost = host.current ? registrarModal(host.current) : () => {};
+    const frame = requestAnimationFrame(() => (dialogo.current?.querySelector<HTMLElement>('input, select, textarea, button:not(.modal-cerrar)') ?? dialogo.current)?.focus());
+    function teclado(e: KeyboardEvent) {
+      if (pilaModales[pilaModales.length - 1] !== elemento) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (confirmacionRef.current) setConfirmarSalida(false); else pedirCerrar();
+      }
+      if (e.key === 'Tab' && dialogo.current) {
+        const area = confirmacionRef.current ? dialogo.current.querySelector('[data-confirmacion]') ?? dialogo.current : dialogo.current;
+        const lista = Array.from(area.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]')).filter((el) => el.getClientRects().length > 0);
+        const primero = lista[0], ultimo = lista[lista.length - 1];
+        if (!primero) { e.preventDefault(); dialogo.current.focus(); }
+        else if (e.shiftKey && (document.activeElement === primero || !area.contains(document.activeElement))) { e.preventDefault(); ultimo.focus(); }
+        else if (!e.shiftKey && (document.activeElement === ultimo || !area.contains(document.activeElement))) { e.preventDefault(); primero.focus(); }
+      }
+    }
+    const descarga = (e: BeforeUnloadEvent) => { if (cambios.current) e.preventDefault(); };
+    document.addEventListener('keydown', teclado);
+    window.addEventListener('beforeunload', descarga);
+    return () => { cancelAnimationFrame(frame); quitarHost(); document.removeEventListener('keydown', teclado); window.removeEventListener('beforeunload', descarga);
+      const eraSuperior = pilaModales[pilaModales.length - 1] === elemento;
+      const indice = pilaModales.indexOf(elemento); if (indice >= 0) pilaModales.splice(indice, 1);
+      actualizarPilaModales();
+      if (!pilaModales.length) document.body.style.overflow = overflowAnterior;
+      if (eraSuperior && anterior?.isConnected) anterior.focus();
+    };
+  }, [abierto, pedirCerrar, registrarModal]);
+  useEffect(() => {
+    if (confirmarSalida) dialogo.current?.querySelector<HTMLElement>('[data-confirmacion] button')?.focus();
+    else if (abierto && cambios.current) dialogo.current?.focus();
+  }, [confirmarSalida, abierto]);
   if (!abierto) return null;
-  return (
-    <div className="modal-fondo" onMouseDown={(e) => { if (e.target === e.currentTarget) alCerrar(); }}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={idTitulo} ref={ref} tabIndex={-1}>
-        <div className="modal-cabecera">
-          <h3 id={idTitulo}>{titulo}</h3>
-          <button type="button" className="boton-silencioso boton-icono" onClick={alCerrar} aria-label="Cerrar"><Icono nombre="x" /></button>
-        </div>
-        <div data-cuerpo>{children}</div>
-      </div>
+  return createPortal(<div className={`modal-fondo${lateral ? ' panel-fondo' : ''}`} onClick={(e) => { if (e.target === e.currentTarget) pedirCerrar(); }}>
+    <div ref={dialogo} className={`modal${lateral ? ' panel-lateral' : ''}`} role="dialog" aria-modal="true" aria-label={titulo} tabIndex={-1}
+      onInputCapture={() => { cambios.current = true; }} onChangeCapture={() => { cambios.current = true; }}
+      onClickCapture={(e) => {
+        const boton = (e.target as HTMLElement).closest('button');
+        if (boton?.textContent?.trim() === 'Cancelar') { e.preventDefault(); e.stopPropagation(); pedirCerrar(); }
+      }}>
+      <div className="modal-cabecera"><div><span className="sobre-titulo">COMPRAS · PRESH TECH</span><h2>{titulo}</h2></div>
+        <button type="button" className="boton-silencioso modal-cerrar" onClick={pedirCerrar} aria-label="Cerrar ventana">×</button></div>
+      <div className="modal-cuerpo" {...(confirmarSalida ? { inert: '' } : {})}>{children}</div>
+      {confirmarSalida ? <div className="confirmar-salida" data-confirmacion role="alertdialog" aria-label="Descartar cambios sin guardar" aria-modal="true">
+        <h3>Tienes cambios sin guardar</h3><p>Puedes seguir editando o descartar lo que escribiste.</p><div className="acciones-fila">
+          <button className="boton-secundario" type="button" onClick={() => setConfirmarSalida(false)}>Seguir editando</button>
+          <button className="boton-peligro" type="button" onClick={() => { cambios.current = false; cerrarRef.current(); }}>Descartar cambios</button>
+        </div></div> : null}
+      <div ref={host} />
     </div>
-  );
+  </div>, document.body);
+}
+
+export function BotonConMotivo({ etiqueta, titulo, descripcion, onConfirmar, clase }: {
+  etiqueta: string; titulo: string; descripcion?: string; onConfirmar: (motivo: string) => Promise<void>; clase?: string;
+}) {
+  const [abierto, setAbierto] = useState(false), [motivo, setMotivo] = useState('');
+  const [error, setError] = useState<string | null>(null), [ocupado, setOcupado] = useState(false);
+  const bloqueo = useRef(false);
+  const { notificar } = useNotificaciones();
+  return <>
+    <button type="button" className={clase ?? 'boton-secundario'} onClick={() => { setAbierto(true); setMotivo(''); setError(null); }}>{etiqueta}</button>
+    <Modal titulo={titulo} abierto={abierto} alCerrar={() => setAbierto(false)} ocupado={ocupado}>
+      {descripcion ? <p>{descripcion}</p> : null}
+      <Formulario className="formulario" onSubmit={async () => {
+        if (bloqueo.current) return;
+        bloqueo.current = true; setOcupado(true); setError(null);
+        try { await onConfirmar(motivo.trim()); setAbierto(false); notificar('La acción quedó registrada correctamente.', 'exito'); }
+        catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+        finally { bloqueo.current = false; setOcupado(false); }
+      }}>
+        <Campo etiqueta="Motivo" requerido ayuda="Explica la razón de esta acción. Quedará en el historial."><textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3} /></Campo>
+        <MensajeError texto={error} />
+        <div className="modal-acciones"><button type="button" className="boton-secundario" onClick={() => setAbierto(false)}>Cancelar</button>
+          <button type="submit" className="boton-primario" disabled={ocupado}>{ocupado ? 'Guardando…' : 'Confirmar'}</button></div>
+      </Formulario>
+    </Modal>
+  </>;
 }
 
 /** Panel lateral (derecha) para vista rápida o edición sin salir de la lista. */
-export function PanelLateral({ titulo, abierto, alCerrar, children, pie }: {
-  titulo: string; abierto: boolean; alCerrar: () => void; children: ReactNode; pie?: ReactNode;
+export function PanelLateral({ titulo, abierto, alCerrar, children }: {
+  titulo: string; abierto: boolean; alCerrar: () => void; children: ReactNode;
 }) {
-  const ref = useRef<HTMLElement>(null);
-  const idTitulo = useId();
-  useDialogoAccesible(abierto, alCerrar, ref);
-  if (!abierto) return null;
-  return (
-    <div className="modal-fondo panel-fondo" onMouseDown={(e) => { if (e.target === e.currentTarget) alCerrar(); }}>
-      <aside className="panel-lateral" role="dialog" aria-modal="true" aria-labelledby={idTitulo} ref={ref} tabIndex={-1}>
-        <div className="modal-cabecera">
-          <h3 id={idTitulo}>{titulo}</h3>
-          <button type="button" className="boton-silencioso boton-icono" onClick={alCerrar} aria-label="Cerrar panel"><Icono nombre="x" /></button>
-        </div>
-        <div className="panel-cuerpo" data-cuerpo>{children}</div>
-        {pie ? <div className="modal-acciones">{pie}</div> : null}
-      </aside>
-    </div>
-  );
+  return <Modal titulo={titulo} abierto={abierto} alCerrar={alCerrar} lateral>{children}</Modal>;
 }
 
-/** Botón que pide un motivo antes de ejecutar una acción sensible. */
-export function BotonConMotivo({ etiqueta, titulo, descripcion, onConfirmar, clase }: {
-  etiqueta: string; titulo: string; descripcion?: string;
-  onConfirmar: (motivo: string) => Promise<void>; clase?: string;
-}) {
-  const [abierto, setAbierto] = useState(false);
-  const [motivo, setMotivo] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [ocupado, setOcupado] = useState(false);
-  const [hecho, setHecho] = useState<string | null>(null);
-  const cerrar = useCallback(() => setAbierto(false), []);
-  return (
-    <>
-      <button type="button" className={clase ?? 'boton-secundario'} onClick={() => { setAbierto(true); setMotivo(''); setError(null); }}>
-        {etiqueta}
-      </button>
-      <Modal titulo={titulo} abierto={abierto} alCerrar={cerrar}>
-        {descripcion ? <p>{descripcion}</p> : null}
-        <Campo etiqueta="Motivo" requerido>
-          <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3} />
-        </Campo>
-        <MensajeError texto={error} />
-        <div className="modal-acciones">
-          <button type="button" className="boton-secundario" onClick={cerrar}>Cancelar</button>
-          <Boton variante="primario" cargando={ocupado} disabled={motivo.trim().length === 0}
-            onClick={async () => {
-              setOcupado(true); setError(null);
-              try { await onConfirmar(motivo.trim()); setAbierto(false); setHecho(`${titulo}: guardado.`); }
-              catch (e) { setError(e instanceof Error ? e.message : String(e)); }
-              finally { setOcupado(false); }
-            }}>
-            {ocupado ? 'Guardando…' : 'Confirmar'}
-          </Boton>
-        </div>
-      </Modal>
-      <MensajeExito texto={hecho} flotante alCerrar={() => setHecho(null)} />
-    </>
-  );
-}
 
 /**
  * Confirmación accesible para acciones irreversibles (reemplaza a confirm()).
