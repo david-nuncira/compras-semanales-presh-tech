@@ -9,6 +9,7 @@ import { Campo, MensajeError, Cargando, Paginador, InsigniaEtapa, InsigniaAproba
 import { etiquetaSemana, fmtFecha, lunesDeSemana } from '../util/fechas.ts';
 import { fmtCantidad, fmtMoneda } from '../util/moneda.ts';
 import { generarCSV, descargarCSV, type ColumnaCSV } from '../util/csv.ts';
+import { useEstadoURL } from '../util/estadoUrl.ts';
 
 const POR_PAGINA = 25;
 const ETAPAS: Etapa[] = ['solicitado', 'en_cotizacion', 'cotizado', 'comprado', 'en_transito', 'recibido_parcial', 'recibido_total', 'cerrado', 'cancelado'];
@@ -33,10 +34,9 @@ export function GestionCompras() {
   const [personas, setPersonas] = useState<PerfilBreve[]>([]);
   const [filas, setFilas] = useState<VArticulo[] | null>(null);
   const [total, setTotal] = useState(0);
-  const [pagina, setPagina] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [f, setF] = useState<Filtros>(VACIO);
-  const cambiar = (p: Partial<Filtros>) => { setPagina(1); setF((x) => ({ ...x, ...p })); };
+  // Filtros y página viven en la URL: «Atrás» conserva la posición.
+  const { estado: f, pagina, cambiar, irAPagina, limpiar } = useEstadoURL<Filtros>(VACIO);
 
   useEffect(() => { listarPerfiles().then(setPersonas).catch(() => {}); }, []);
 
@@ -176,7 +176,7 @@ export function GestionCompras() {
           <input type="checkbox" checked={f.extra} onChange={(e) => cambiar({ extra: e.target.checked })} /></label>
         <label className="campo"><span className="campo-etiqueta">Incluir devueltas</span>
           <input type="checkbox" checked={f.incluirCorreccion} onChange={(e) => cambiar({ incluirCorreccion: e.target.checked })} /></label>
-        <button type="button" className="boton-secundario" onClick={() => { setPagina(1); setF(VACIO); }}>Limpiar filtros</button>
+        <button type="button" className="boton-secundario" onClick={limpiar}>Limpiar filtros</button>
         <button type="button" className="boton-secundario" onClick={() => void cargar()}>Actualizar</button>
         <button type="button" className="boton-secundario" onClick={() => void exportar()}>Exportar CSV</button>
       </div>
@@ -218,7 +218,7 @@ export function GestionCompras() {
           </table>
         </div>
       )}
-      <Paginador pagina={pagina} porPagina={POR_PAGINA} total={total} alCambiar={setPagina} />
+      <Paginador pagina={pagina} porPagina={POR_PAGINA} total={total} alCambiar={irAPagina} />
       <p className="texto-suave">Totales y filtros se calculan sobre todo el conjunto autorizado, no solo esta página.</p>
     </div>
   );

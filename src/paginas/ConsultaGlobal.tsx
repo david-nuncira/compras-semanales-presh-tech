@@ -7,8 +7,10 @@ import { ETIQUETA_ESTADO_SOLICITUD } from '../tipos.ts';
 import { Campo, MensajeError, Cargando, Paginador, InsigniaSolicitud } from '../componentes/UI.tsx';
 import { etiquetaSemana, fmtFecha, fmtFechaHora } from '../util/fechas.ts';
 import { generarCSV, descargarCSV } from '../util/csv.ts';
+import { useEstadoURL } from '../util/estadoUrl.ts';
 
 const POR_PAGINA = 25;
+const VACIO_URL: { grupo: string; area: string; q: string; extra: boolean } = { grupo: 'todas', area: '', q: '', extra: false };
 type Grupo = 'todas' | 'aprobacion' | 'programadas' | 'compras' | 'devueltas' | 'finalizadas';
 const ESTADOS: Record<Grupo, string[] | null> = {
   todas: null,
@@ -28,11 +30,12 @@ export function ConsultaGlobal() {
   const { cat } = useCatalogos(true);
   const [filas, setFilas] = useState<VSolicitud[] | null>(null);
   const [total, setTotal] = useState(0);
-  const [pagina, setPagina] = useState(1);
-  const [grupo, setGrupo] = useState<Grupo>('todas');
-  const [area, setArea] = useState('');
-  const [texto, setTexto] = useState('');
-  const [soloExtra, setSoloExtra] = useState(false);
+  // Grupo, filtros y página viven en la URL: «Atrás» conserva la posición.
+  const { estado: fu, pagina, cambiar, irAPagina } = useEstadoURL(VACIO_URL);
+  const grupo: Grupo = fu.grupo in ESTADOS ? (fu.grupo as Grupo) : 'todas';
+  const area = fu.area;
+  const texto = fu.q;
+  const soloExtra = fu.extra;
   const [error, setError] = useState<string | null>(null);
 
   const consulta = useCallback((base: unknown) => {
@@ -91,19 +94,19 @@ export function ConsultaGlobal() {
            ['compras', 'En Compras'], ['devueltas', 'Devueltas'], ['finalizadas', 'Rechazadas / canceladas']] as Array<[Grupo, string]>)
           .map(([k, t]) => (
             <button key={k} type="button" role="tab" aria-selected={grupo === k}
-              className={grupo === k ? 'boton-primario' : 'boton-secundario'} onClick={() => { setPagina(1); setGrupo(k); }}>{t}</button>
+              className={grupo === k ? 'boton-primario' : 'boton-secundario'} onClick={() => cambiar({ grupo: k })}>{t}</button>
           ))}
       </div>
       <div className="filtros">
-        <Campo etiqueta="Número"><input value={texto} onChange={(e) => { setPagina(1); setTexto(e.target.value); }} /></Campo>
+        <Campo etiqueta="Número"><input value={texto} onChange={(e) => cambiar({ q: e.target.value })} /></Campo>
         <Campo etiqueta="Área">
-          <select value={area} onChange={(e) => { setPagina(1); setArea(e.target.value); }}>
+          <select value={area} onChange={(e) => cambiar({ area: e.target.value })}>
             <option value="">Todas</option>
             {cat?.areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
           </select>
         </Campo>
         <label className="campo"><span className="campo-etiqueta">Extraordinarias</span>
-          <input type="checkbox" checked={soloExtra} onChange={(e) => { setPagina(1); setSoloExtra(e.target.checked); }} /></label>
+          <input type="checkbox" checked={soloExtra} onChange={(e) => cambiar({ extra: e.target.checked })} /></label>
         <button type="button" className="boton-secundario" onClick={() => void cargar()}>Actualizar</button>
         <button type="button" className="boton-secundario" onClick={() => void exportar()}>Exportar CSV</button>
       </div>
@@ -133,7 +136,7 @@ export function ConsultaGlobal() {
           </table>
         </div>
       )}
-      <Paginador pagina={pagina} porPagina={POR_PAGINA} total={total} alCambiar={setPagina} />
+      <Paginador pagina={pagina} porPagina={POR_PAGINA} total={total} alCambiar={irAPagina} />
     </div>
   );
 }

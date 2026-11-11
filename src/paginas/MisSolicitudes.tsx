@@ -11,8 +11,10 @@ import { CalendarioSemanas } from '../componentes/CalendarioSemanas.tsx';
 import { etiquetaSemana, lunesProximaSemana, fmtFecha } from '../util/fechas.ts';
 import { generarCSV, descargarCSV } from '../util/csv.ts';
 import { centroInicial } from '../util/validaciones.ts';
+import { useEstadoURL } from '../util/estadoUrl.ts';
 
 const POR_PAGINA = 20;
+const VACIO_URL: { bandeja: string; q: string } = { bandeja: 'todas', q: '' };
 
 type Bandeja = 'todas' | 'borradores' | 'devueltas' | 'aprobacion' | 'compras' | 'finalizadas';
 const FILTRO_BANDEJA: Record<Bandeja, string[] | null> = {
@@ -36,9 +38,10 @@ export function MisSolicitudes() {
   const { cat } = useCatalogos();
   const [filas, setFilas] = useState<VSolicitud[] | null>(null);
   const [total, setTotal] = useState(0);
-  const [pagina, setPagina] = useState(1);
-  const [bandeja, setBandeja] = useState<Bandeja>('todas');
-  const [filtroTexto, setFiltroTexto] = useState('');
+  // Bandeja, búsqueda y página viven en la URL: «Atrás» conserva la posición.
+  const { estado: filtrosUrl, pagina, cambiar, irAPagina } = useEstadoURL(VACIO_URL);
+  const bandeja: Bandeja = filtrosUrl.bandeja in FILTRO_BANDEJA ? (filtrosUrl.bandeja as Bandeja) : 'todas';
+  const filtroTexto = filtrosUrl.q;
   const [error, setError] = useState<string | null>(null);
   const [devueltas, setDevueltas] = useState(0);
 
@@ -135,7 +138,7 @@ export function MisSolicitudes() {
       {devueltas > 0 ? (
         <p className="mensaje mensaje-error">
           Tienes {devueltas} solicitud(es) devuelta(s) para corrección.{' '}
-          <button type="button" className="enlace" onClick={() => { setPagina(1); setBandeja('devueltas'); }}>Verlas</button>
+          <button type="button" className="enlace" onClick={() => cambiar({ bandeja: 'devueltas' })}>Verlas</button>
         </p>
       ) : null}
       <div className="pestanas" role="tablist">
@@ -144,12 +147,12 @@ export function MisSolicitudes() {
           .map(([k, t]) => (
             <button key={k} type="button" role="tab" aria-selected={bandeja === k}
               className={bandeja === k ? 'boton-primario' : 'boton-secundario'}
-              onClick={() => { setPagina(1); setBandeja(k); }}>{t}</button>
+              onClick={() => cambiar({ bandeja: k })}>{t}</button>
           ))}
       </div>
       <div className="filtros">
         <Campo etiqueta="Buscar por número">
-          <input value={filtroTexto} onChange={(e) => { setPagina(1); setFiltroTexto(e.target.value); }} placeholder="SOL-2026-…" />
+          <input value={filtroTexto} onChange={(e) => cambiar({ q: e.target.value })} placeholder="SOL-2026-…" />
         </Campo>
         <button type="button" className="boton-secundario" onClick={() => void cargar()}>Actualizar</button>
         <button type="button" className="boton-secundario" onClick={exportar} disabled={!filas || filas.length === 0}>Exportar CSV</button>
@@ -191,7 +194,7 @@ export function MisSolicitudes() {
           </table>
         </div>
       )}
-      <Paginador pagina={pagina} porPagina={POR_PAGINA} total={total} alCambiar={setPagina} />
+      <Paginador pagina={pagina} porPagina={POR_PAGINA} total={total} alCambiar={irAPagina} />
 
       <Modal titulo="Nueva solicitud (se guarda como borrador)" abierto={abierto} alCerrar={() => setAbierto(false)}>
         <form className="formulario" onSubmit={crear} noValidate>

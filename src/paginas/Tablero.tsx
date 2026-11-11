@@ -4,16 +4,12 @@ import { supabase } from '../supabase.ts';
 import { useSesion } from '../contexto/Sesion.tsx';
 import { usePermisos } from '../permisos.ts';
 import { useActualizacionPeriodica } from '../datos.ts';
-import { Cargando, Campo } from '../componentes/UI.tsx';
+import { useResumen } from '../contexto/Resumen.tsx';
+import { Cargando, Campo, EstadoVacio, EstadoError, Esqueleto, Icono } from '../componentes/UI.tsx';
 import { fmtMoneda } from '../util/moneda.ts';
 import { hoyBogotaISO, sumarDias } from '../util/fechas.ts';
 
-interface Resumen {
-  pendientes: number; por_aprobar: number; atrasados: number; por_llegar: number;
-  en_almacen: number; entregados: number; novedades_abiertas: number;
-  aprobaciones_jefe_mias?: number; pendientes_aprobacion?: number; programadas?: number;
-  pendientes_entrega?: number; mis_devueltas?: number;
-}
+interface Tarea { n: number | null | undefined; texto: string; enlace: string }
 interface Indicadores {
   solicitudes_enviadas: number; anticipacion_promedio_dias: number | null; anticipacion_con_dato: number;
   horas_envio_aprobacion: number | null; horas_aprobacion_recepcion: number | null; horas_recepcion_compra: number | null;
@@ -35,19 +31,31 @@ function horasATexto(h: number | null): string {
 export function Tablero() {
   const { perfil } = useSesion();
   const p = usePermisos();
-  const [r, setR] = useState<Resumen | null>(null);
+  const { resumen: r, sinCotizar, paraRecoger, hora, error: errorResumen, recargar } = useResumen();
   const [ind, setInd] = useState<Indicadores | null>(null);
-  const [hora, setHora] = useState('');
   const [desde, setDesde] = useState(sumarDias(hoyBogotaISO(), -90));
   const [hasta, setHasta] = useState(hoyBogotaISO());
   const veIndicadores = p.consultaGlobal || p.gestor;
 
-  useActualizacionPeriodica(async () => {
-    const { data, error } = await supabase.rpc('fn_resumen_tablero');
-    if (!error && data) {
-      setR(data as Resumen);
-      setHora(new Date().toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }));
+  // «Lo que tienes que hacer hoy», solo con datos que ya existen (fn_resumen_tablero y v_articulos).
+  const tareas: Tarea[] = [];
+  if (r) {
+    if (p.solicitante) {
+      tareas.push({ n: r.mis_devueltas, texto: 'solicitudes devueltas para corregir', enlace: '/mis-solicitudes?bandeja=devueltas' });
+      tareas.push({ n: paraRecoger, texto: 'artículos con saldo en almacén para recoger', enlace: '/mis-solicitudes' });
     }
+    if (p.jefe) tareas.push({ n: r.aprobaciones_jefe_mias, texto: 'solicitudes por aprobar', enlace: '/aprobacion-solicitudes' });
+    if (p.gestor) {
+      tareas.push({ n: sinCotizar, texto: 'artículos recibidos sin cotizar', enlace: '/gestion?etapa=solicitado' });
+      tareas.push({ n: r.atrasados, texto: 'artículos atrasados', enlace: '/gestion?atrasados=1' });
+      tareas.push({ n: r.por_llegar, texto: 'compras por llegar', enlace: '/almacen' });
+    }
+    if (p.aprobadorCotizacion) tareas.push({ n: r.por_aprobar, texto: 'cotizaciones o gastos por aprobar', enlace: '/aprobaciones' });
+    if (p.almacen) tareas.push({ n: r.pendientes_entrega, texto: 'artículos pendientes de entrega', enlace: '/almacen' });
+  }
+  const pendientesHoy = tareas.filter((t) => (t.n ?? 0) > 0);
+
+  useActualizacionPeriodica(async () => {
     if (veIndicadores) {
       const { data: di } = await supabase.rpc('fn_indicadores', { p_desde: desde, p_hasta: hasta });
       if (di) setInd(di as Indicadores);
@@ -58,7 +66,22 @@ export function Tablero() {
     <div className="contenido">
       <h1>Hola, {perfil?.nombre}</h1>
       <p className="texto-suave">Indicadores sobre lo que tu cuenta puede ver{hora ? ` · actualizado ${hora}` : ''}.</p>
-      {!r ? <Cargando /> : (
+      <section className="tarjeta" aria-labelledby="hoy-titulo">
+        <h2 id="hoy-titulo">Lo que tienes que hacer hoy</h2>
+        {errorResumen && !r ? <EstadoError mensaje={errorResumen} alReintentar={() => void recargar()} />
+          : !r ? <Esqueleto lineas={3} />
+          : pendientesHoy.length === 0 ? (
+            <EstadoVacio titulo="Estás al día" texto="No tienes tareas pendientes en este momento."
+              accion={p.solicitante ? <Link className="boton-primario enlace-boton" to="/mis-solicitudes">Ir a Mis solicitudes</Link> : undefined} />
+          ) : (
+            <ul className="lista-tareas">
+              {pendientesHoy.map((t) => (
+                <li key={t.enlace + t.texto}><Link to={t.enlace}><b>{t.n}</b> <span>{t.texto}</span> <Icono nombre="flecha" /></Link></li>
+              ))}
+            </ul>
+          )}
+      </section>
+      {!r ? null : (
         <>
           {p.solicitante ? (
             <div className="tarjeta">

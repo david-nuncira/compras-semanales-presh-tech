@@ -19,7 +19,7 @@ Rama: `mejora/frontend-ux` (desde `main` `2650944`). Reglas: ver `CLAUDE.md`. Ha
 ## Fase 1 · Sistema de diseño y navegación
 Alcance: tokens (color, espaciado de 4 px, radios, sombras, tipografía), ampliación de `UI.tsx` (Botón, Campo, Select, Textarea, Insignia con ícono, Tabla de datos, Panel lateral, Modal con foco, Pestañas, Estado vacío, Esqueleto, Paginación), barra lateral + menú móvil con contadores, inicio por rol, `React.lazy` por ruta, filtros en la URL, CSS de acceso sin tocar su lógica. Documentar en `SISTEMA_DE_DISENO.md`.
 Verificación:
-- [ ] typecheck, test:logica y build en verde
+- [x] typecheck, test:logica y build en verde
 - [ ] Menú solo con módulos permitidos por `permisos.ts`
 - [ ] Modal: atrapa foco, Esc, devuelve foco
 - [ ] Foco visible y objetivos de 44 px
@@ -59,3 +59,7 @@ Verificación:
 
 - **Fase 0:** hecho: rama creada, `CLAUDE.md` copiado a la raíz, `AUDITORIA.md`, `PLAN.md`, `REQUIERE_BACKEND.md`. Probado: los cuatro comandos de base (resultado arriba). Pendiente: las tres decisiones de arriba.
 - **Base corregida (antes de la Fase 1):** hecho: `AdminCatalogos.tsx` (solo el tipo del parámetro de `ejecutar`, de `Promise` a `PromiseLike`; sin cambio de lógica), script `test:logica` con `pruebas-logica/*.test.ts` y `package-lock.json` generado. Probado: `npm ci` OK, typecheck con 0 errores, pruebas 38 pasan / 0 fallan / 1 omitida, build OK. Pendiente: el glob del script requiere Node 22 o superior para `node --test`; con Node 20 habría que listar los archivos.
+- **Fase 1 (sistema de diseño y navegación):**
+  - Hecho: tokens CSS; componentes nuevos en `UI.tsx` (Boton, Select, Textarea, Insignia con ícono, TablaDatos, PanelLateral, Modal con foco, Pestanas, EstadoVacio, Esqueleto, EstadoError, SinPermiso, Icono); menú lateral en escritorio y cajón en móvil con contadores y enlace «Saltar al contenido» (`Navegacion.tsx`, `contexto/Resumen.tsx`); Inicio con «Lo que tienes que hacer hoy» por rol; `React.lazy` por ruta (el paquete principal bajó de 487 kB a 310 kB); filtros, búsqueda y página en la URL en Mis solicitudes, Gestión de compras y Consulta global (`util/estadoUrl.ts`); CSS de acceso con los tokens, sin tocar su lógica. Documentado en `SISTEMA_DE_DISENO.md`.
+  - Probado: typecheck 0 errores; `test:logica` 38 pasan / 0 fallan / 1 omitida; build OK; `RedirigirRecuperacion` y `useEsperaPerfil` sin cambios. En el navegador solo se vio la pantalla de Acceso (sin errores de consola; a 375 px sin scroll horizontal, botón de 44 px y campos de 16 px).
+  - Pendiente: **no se vio con sesión iniciada** (menú, Inicio, contadores, cajón móvil y las listas con filtros en la URL); queda para la revisión manual en la vista previa de la rama. El contador «artículos para recoger» del solicitante usa `v_articulos.disponible_almacen > 0` filtrado por solicitante; hay que confirmar que coincide con lo que el solicitante espera. Migrar `confirm()` y las pestañas manuales de otras pantallas, y filtros en URL del resto de listas, va en las fases 2 a 4.

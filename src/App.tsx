@@ -1,34 +1,35 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { ProveedorSesion, useSesion } from './contexto/Sesion.tsx';
 import { supabase } from './supabase.ts';
 import { usePermisos, type Permisos } from './permisos.ts';
-import { ENTORNO } from './config.ts';
-import { Cargando } from './componentes/UI.tsx';
+import { Cargando, Esqueleto, SinPermiso } from './componentes/UI.tsx';
+import { Marco } from './componentes/Navegacion.tsx';
 
 import { Acceso } from './paginas/Acceso.tsx';
 import { Restablecer } from './paginas/Restablecer.tsx';
 import { PendienteActivacion } from './paginas/PendienteActivacion.tsx';
-import { Tablero } from './paginas/Tablero.tsx';
-import { MisSolicitudes } from './paginas/MisSolicitudes.tsx';
-import { SolicitudDetalle } from './paginas/SolicitudDetalle.tsx';
-import { AprobacionSolicitudes } from './paginas/AprobacionSolicitudes.tsx';
-import { GestionCompras } from './paginas/GestionCompras.tsx';
-import { ArticuloGestion } from './paginas/ArticuloGestion.tsx';
-import { Aprobaciones } from './paginas/Aprobaciones.tsx';
-import { Almacen } from './paginas/Almacen.tsx';
-import { ComprasExternas } from './paginas/ComprasExternas.tsx';
-import { Reportes } from './paginas/Reportes.tsx';
-import { ConsultaGlobal } from './paginas/ConsultaGlobal.tsx';
-import { Notificaciones } from './paginas/Notificaciones.tsx';
-import { AdminUsuarios } from './paginas/AdminUsuarios.tsx';
-import { AdminEstructura } from './paginas/AdminEstructura.tsx';
-import { AdminCalendario } from './paginas/AdminCalendario.tsx';
-import { AdminCatalogos } from './paginas/AdminCatalogos.tsx';
-import { AdminAuditoria } from './paginas/AdminAuditoria.tsx';
-import { AdminRecuperacion } from './paginas/AdminRecuperacion.tsx';
-import { AdminImportacion } from './paginas/AdminImportacion.tsx';
+// Carga diferida por ruta: cada pantalla se descarga solo cuando se abre.
+const Tablero = lazy(() => import('./paginas/Tablero.tsx').then((m) => ({ default: m.Tablero })));
+const MisSolicitudes = lazy(() => import('./paginas/MisSolicitudes.tsx').then((m) => ({ default: m.MisSolicitudes })));
+const SolicitudDetalle = lazy(() => import('./paginas/SolicitudDetalle.tsx').then((m) => ({ default: m.SolicitudDetalle })));
+const AprobacionSolicitudes = lazy(() => import('./paginas/AprobacionSolicitudes.tsx').then((m) => ({ default: m.AprobacionSolicitudes })));
+const GestionCompras = lazy(() => import('./paginas/GestionCompras.tsx').then((m) => ({ default: m.GestionCompras })));
+const ArticuloGestion = lazy(() => import('./paginas/ArticuloGestion.tsx').then((m) => ({ default: m.ArticuloGestion })));
+const Aprobaciones = lazy(() => import('./paginas/Aprobaciones.tsx').then((m) => ({ default: m.Aprobaciones })));
+const Almacen = lazy(() => import('./paginas/Almacen.tsx').then((m) => ({ default: m.Almacen })));
+const ComprasExternas = lazy(() => import('./paginas/ComprasExternas.tsx').then((m) => ({ default: m.ComprasExternas })));
+const Reportes = lazy(() => import('./paginas/Reportes.tsx').then((m) => ({ default: m.Reportes })));
+const ConsultaGlobal = lazy(() => import('./paginas/ConsultaGlobal.tsx').then((m) => ({ default: m.ConsultaGlobal })));
+const Notificaciones = lazy(() => import('./paginas/Notificaciones.tsx').then((m) => ({ default: m.Notificaciones })));
+const AdminUsuarios = lazy(() => import('./paginas/AdminUsuarios.tsx').then((m) => ({ default: m.AdminUsuarios })));
+const AdminEstructura = lazy(() => import('./paginas/AdminEstructura.tsx').then((m) => ({ default: m.AdminEstructura })));
+const AdminCalendario = lazy(() => import('./paginas/AdminCalendario.tsx').then((m) => ({ default: m.AdminCalendario })));
+const AdminCatalogos = lazy(() => import('./paginas/AdminCatalogos.tsx').then((m) => ({ default: m.AdminCatalogos })));
+const AdminAuditoria = lazy(() => import('./paginas/AdminAuditoria.tsx').then((m) => ({ default: m.AdminAuditoria })));
+const AdminRecuperacion = lazy(() => import('./paginas/AdminRecuperacion.tsx').then((m) => ({ default: m.AdminRecuperacion })));
+const AdminImportacion = lazy(() => import('./paginas/AdminImportacion.tsx').then((m) => ({ default: m.AdminImportacion })));
 
 /**
  * Con la corrección de producción en Sesion.tsx, el perfil se carga justo
@@ -59,49 +60,11 @@ function Protegida({ children, permite }: { children: ReactNode; permite?: (p: P
   if (permite && !permite(permisos)) {
     return (
       <div className="contenido">
-        <div className="tarjeta">
-          <h2>Sin permiso</h2>
-          <p>Tu cuenta no tiene el permiso necesario para esta sección. Si crees que es un error, contacta al administrador.</p>
-        </div>
+        <SinPermiso />
       </div>
     );
   }
   return <>{children}</>;
-}
-
-function Cabecera() {
-  const { perfil, salir, sesion } = useSesion();
-  const p = usePermisos();
-  if (!sesion || !perfil || perfil.estado !== 'activo') return null;
-  const clase = ({ isActive }: { isActive: boolean }) => (isActive ? 'activo' : '');
-  const sinLeer = perfil.notificaciones_sin_leer ?? 0;
-  return (
-    <>
-      {ENTORNO === 'pruebas' ? <div className="banda-pruebas">ENTORNO DE PRUEBAS · datos ficticios · no es producción</div> : null}
-      {ENTORNO === 'vista_previa_real' ? <div className="banda-pruebas banda-real">VISTA PREVIA de la nueva versión conectada a la base REAL · lo que hagas aquí queda guardado</div> : null}
-      <header className="cabecera">
-        <span className="marca">🛒 Compras Semanales</span>
-        <nav aria-label="Secciones">
-          <NavLink to="/" className={clase} end>Inicio</NavLink>
-          {p.solicitante ? <NavLink to="/mis-solicitudes" className={clase}>Mis solicitudes</NavLink> : null}
-          {p.jefe ? <NavLink to="/aprobacion-solicitudes" className={clase}>Por aprobar (jefe)</NavLink> : null}
-          {p.gestor ? <NavLink to="/gestion" className={clase}>Gestión de compras</NavLink> : null}
-          {p.aprobadorCotizacion ? <NavLink to="/aprobaciones" className={clase}>Aprobación de cotizaciones</NavLink> : null}
-          {(p.almacen || p.gestor) ? <NavLink to="/almacen" className={clase}>Almacén</NavLink> : null}
-          {p.consultaGlobal ? <NavLink to="/consulta" className={clase}>Consulta global</NavLink> : null}
-          {p.gestor ? <NavLink to="/compras-externas" className={clase}>Compras externas</NavLink> : null}
-          {(p.gestor || p.consultaGlobal) ? <NavLink to="/reportes" className={clase}>Reportes</NavLink> : null}
-          {(p.adminUsuarios || p.adminCatalogos || p.adminGeneral)
-            ? <NavLink to={p.adminUsuarios ? '/admin' : '/admin/estructura'} className={clase}>Administración</NavLink> : null}
-        </nav>
-        <NavLink to="/notificaciones" className="campana" aria-label={`Notificaciones: ${sinLeer} sin leer`}>
-          🔔{sinLeer > 0 ? <span className="contador">{sinLeer > 99 ? '99+' : sinLeer}</span> : null}
-        </NavLink>
-        <span className="usuario">{perfil.nombre}{perfil.area_nombre ? ` · ${perfil.area_nombre}` : ''}</span>
-        <button type="button" className="boton-secundario" onClick={() => void salir()}>Salir</button>
-      </header>
-    </>
-  );
 }
 
 /** Abre la pantalla de cambio de contraseña al volver desde un enlace Auth. */
@@ -132,7 +95,8 @@ export function App() {
     <ProveedorSesion>
       <BrowserRouter>
         <RedirigirRecuperacion />
-        <Cabecera />
+        <Marco>
+        <Suspense fallback={<div className="contenido"><Esqueleto lineas={4} /></div>}>
         <Routes>
           {/* Acceso y recuperación: sin cambios en esta versión. */}
           <Route path="/acceso" element={<Acceso />} />
@@ -160,6 +124,8 @@ export function App() {
           <Route path="/admin/importacion" element={<Protegida permite={(p) => p.adminGeneral}><AdminImportacion /></Protegida>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
+        </Marco>
       </BrowserRouter>
     </ProveedorSesion>
   );
