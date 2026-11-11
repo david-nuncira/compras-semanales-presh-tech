@@ -7,12 +7,14 @@ import { UnidadesCatalogo } from '../componentes/UnidadesCatalogo.tsx';
 import { usePermisos } from '../permisos.ts';
 import { Campo, Formulario, MensajeError, Cargando, EstadoError } from '../componentes/UI.tsx';
 import { useNotificaciones } from '../componentes/Notificaciones.tsx';
+import { PanelProveedores } from '../componentes/PanelProveedores.tsx';
 
 export function AdminCatalogos() {
   const { cat, error: errorCat, recargar } = useCatalogos(true);
   const permisos = usePermisos();
   const { notificar, cerrarClave } = useNotificaciones();
   const [ocupado, setOcupado] = useState(false);
+  const [panelProveedores, setPanelProveedores] = useState(false);
   const bloqueo = useRef(false);
   const [nArea, setNArea] = useState('');
   const [nCCCodigo, setNCCCodigo] = useState(''), [nCCNombre, setNCCNombre] = useState('');
@@ -75,7 +77,9 @@ export function AdminCatalogos() {
           <Campo etiqueta="Correo electrónico"><input type="email" value={nProv.correo} onChange={(e) => setNProv({ ...nProv, correo: e.target.value })} autoComplete="email" placeholder="contacto@proveedor.com" /></Campo>
         </div><div className="formulario-pie"><span className="texto-suave">Solo el nombre es obligatorio.</span><button type="submit" className="boton-primario">{ocupado ? 'Guardando…' : 'Agregar proveedor'}</button></div></fieldset>
       </Formulario>
+      <div className="acciones-fila"><button type="button" className="boton-secundario" onClick={() => setPanelProveedores(true)}>Editar o eliminar proveedores</button></div>
       <ul className="lista-catalogo">{cat.proveedores.map((p) => <li key={p.id}><div><strong>{p.nombre}</strong>{p.identificacion ? <span>{p.identificacion}</span> : null}<span className={`estado-registro${p.activo ? '' : ' inactivo'}`}>{p.activo ? 'Activo' : 'Inactivo'}</span></div>{permisos.adminCatalogos ? <button type="button" disabled={ocupado} className="boton-silencioso" onClick={() => void ejecutar(() => supabase.from('proveedores').update({ activo: !p.activo }).eq('id', p.id).eq('version', p.version).select('id'), p.activo ? 'Proveedor desactivado.' : 'Proveedor reactivado.')}>{p.activo ? 'Desactivar' : 'Reactivar'}</button> : null}</li>)}</ul>
     </section>
+    <PanelProveedores abierto={panelProveedores} alCerrar={() => setPanelProveedores(false)} />
   </div>;
 }

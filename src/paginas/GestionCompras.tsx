@@ -11,6 +11,7 @@ import {
 } from '../componentes/UI.tsx';
 import { MiniaturaArticulo, useAdjuntosArticulos } from '../componentes/Miniatura.tsx';
 import { ArticuloGestion } from './ArticuloGestion.tsx';
+import { PanelProveedores } from '../componentes/PanelProveedores.tsx';
 import { etiquetaSemana, fmtFecha, lunesDeSemana } from '../util/fechas.ts';
 import { fmtCantidad, fmtMoneda } from '../util/moneda.ts';
 import { generarCSV, descargarCSV, type ColumnaCSV } from '../util/csv.ts';
@@ -50,6 +51,7 @@ export function GestionCompras() {
   const [filas, setFilas] = useState<VArticulo[] | null>(null);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [panelProveedores, setPanelProveedores] = useState(false);
   // Filtros, orden, página y artículo abierto viven en la URL: «Atrás» conserva la posición.
   const { estado: fu, pagina, cambiar, irAPagina } = useEstadoURL<Filtros>(VACIO);
   // Los filtros de datos no incluyen el artículo abierto: abrir el panel no recarga la lista.
@@ -250,6 +252,7 @@ export function GestionCompras() {
         <Boton onClick={limpiarFiltros}>Limpiar filtros</Boton>
         <Boton onClick={() => void cargar()}>Actualizar</Boton>
         <Boton onClick={() => void exportar()}>Exportar CSV</Boton>
+        <Boton onClick={() => setPanelProveedores(true)}>Proveedores</Boton>
       </div>
       <MensajeError texto={filas ? error : null} flotante />
       <TablaDatos titulo="Artículos en gestión de compras" columnas={columnas} filas={filas} clave={(x) => x.id}
@@ -261,6 +264,7 @@ export function GestionCompras() {
       <Paginador pagina={pagina} porPagina={POR_PAGINA} total={total} alCambiar={irAPagina} />
       <p className="texto-suave">Totales y filtros se calculan sobre todo el conjunto autorizado, no solo esta página.</p>
 
+      <PanelProveedores abierto={panelProveedores} alCerrar={() => setPanelProveedores(false)} />
       <PanelLateral titulo={abierto?.nombre ?? 'Ficha del artículo'} abierto={!!fu.articulo} alCerrar={cerrarFicha}>
         {fu.articulo ? <ArticuloGestion idArticulo={fu.articulo} enPanel alCambiar={refrescarFila} /> : null}
       </PanelLateral>
