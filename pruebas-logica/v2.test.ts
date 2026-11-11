@@ -134,10 +134,23 @@ test('Entorno: producción vs. vista previa de rama vs. equipo local', () => {
 // ---------- Formularios ----------
 const UNIDADES = ['Unidad', 'Par', 'Metro'];
 const BASE = { nombre: 'Casco', descripcion: 'Casco dieléctrico talla M color blanco', cantidad: '2', unidad: 'Unidad',
-  prioridad: 'media', fecha_requerida: '', justificacion: '', enlace_referencia: '', proveedor_sugerido: '' };
+  prioridad: 'media', fecha_requerida: '', justificacion: 'Reposición de equipo de seguridad', enlace_referencia: '', proveedor_sugerido: '' };
 
 test('Artículo válido no tiene errores; proveedor y enlace son opcionales', () => {
   assert.deepEqual(validarArticulo(BASE, UNIDADES, '2026-10-26'), {});
+});
+
+test('La justificación es obligatoria', () => {
+  assert.match(validarArticulo({ ...BASE, justificacion: '' }, UNIDADES, '2026-10-26').justificacion ?? '', /Explica para qué/);
+  assert.match(validarArticulo({ ...BASE, justificacion: '   ' }, UNIDADES, '2026-10-26').justificacion ?? '', /Explica para qué/);
+  assert.match(validarArticulo({ ...BASE, justificacion: 'ok' }, UNIDADES, '2026-10-26').justificacion ?? '', /mínimo 5/);
+  assert.equal(validarArticulo({ ...BASE, justificacion: 'Para el equipo' }, UNIDADES, '2026-10-26').justificacion, undefined);
+});
+
+test('En mantenimiento el centro de costo destino es obligatorio; en compras semanales no se pide', () => {
+  assert.match(validarArticulo(BASE, UNIDADES, '2026-10-26', { exigirDestino: true }).centro_costo_id ?? '', /centro de costo/);
+  assert.equal(validarArticulo({ ...BASE, centro_costo_id: 'cc1' }, UNIDADES, '2026-10-26', { exigirDestino: true }).centro_costo_id, undefined);
+  assert.equal(validarArticulo(BASE, UNIDADES, '2026-10-26').centro_costo_id, undefined);
 });
 
 test('Errores junto a cada campo', () => {

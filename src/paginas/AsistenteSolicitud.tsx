@@ -15,6 +15,10 @@ import {
 import { Adjuntos } from '../componentes/Adjuntos.tsx';
 import { CalendarioSemanas } from '../componentes/CalendarioSemanas.tsx';
 import { MiniaturaArticulo, useAdjuntosArticulos } from '../componentes/Miniatura.tsx';
+import { FotosDelFormulario } from '../componentes/FotosDelFormulario.tsx';
+import { TablaFormatoSolicitud } from '../componentes/FormatoSolicitud.tsx';
+import { subirFotosArticulo, liberarFotos, type FotoPendiente } from '../util/fotos.ts';
+import { esCentroMantenimiento } from '../util/mantenimiento.ts';
 import { etiquetaSemana, fmtFecha, fmtFechaHora, hoyBogotaISO, lunesProximaSemana } from '../util/fechas.ts';
 import { fmtCantidad, parseNumero } from '../util/moneda.ts';
 import { validarArticulo, centroInicial, solicitanteEdita, type ArticuloForm } from '../util/validaciones.ts';
@@ -27,7 +31,7 @@ const PASOS = ['General', 'Artículos', 'Revisión', 'Envío'] as const;
 function articuloVacio(unidad: string): FormArticulo {
   return {
     nombre: '', descripcion: '', cantidad: '1', unidad, prioridad: 'media',
-    fecha_requerida: '', justificacion: '', enlace_referencia: '', proveedor_sugerido: ''
+    fecha_requerida: '', justificacion: '', enlace_referencia: '', proveedor_sugerido: '', centro_costo_id: ''
   };
 }
 
@@ -88,9 +92,16 @@ export function AsistenteSolicitud() {
   const [recien, setRecien] = useState<string | null>(null);
   const [porEliminar, setPorEliminar] = useState<VArticulo | null>(null);
   const nombreRef = useRef<HTMLInputElement>(null);
+  const [fotos, setFotos] = useState<FotoPendiente[]>([]);
   useEffect(() => { setForm((f) => (f.unidad || f.id ? f : { ...f, unidad: unidadInicial })); }, [unidadInicial]);
 
-  const erroresA = validarArticulo(form, unidadesActivas, hoyBogotaISO());
+  // Pedido de MANTENIMIENTO: sigue el formato de la hoja (destino por artículo). Compras semanales sigue normal.
+  const centroSolicitud = sol ? { codigo: sol.centro_costo_codigo, nombre: sol.centro_costo_nombre }
+    : (cat?.centros.find((c) => c.id === ccId) ?? null);
+  const esMtto = esCentroMantenimiento(centroSolicitud);
+  const centrosDestino = cat?.centros ?? [];
+  const nombreCentro = (id: string | null) => { const c = centrosDestino.find((x) => x.id === id); return c ? (c.nombre || c.codigo) : '—'; };
+  const erroresA = validarArticulo(form, unidadesActivas, hoyBogotaISO(), { exigirDestino: esMtto });
   const verA = (k: keyof ArticuloForm) => (tocadosA[k] || intentoA ? erroresA[k] : undefined);
   const tocarA = (k: keyof ArticuloForm) => setTocadosA((t) => ({ ...t, [k]: true }));
   const formVirgen = form.nombre.trim() === '' && form.descripcion.trim() === '' && !form.id;
@@ -160,6 +171,7 @@ export function AsistenteSolicitud() {
       return false;
     }
     const fila = {
+      ...(esMtto ? { centro_costo_id: form.centro_costo_id || null } : {}),
       nombre: form.nombre.trim(), descripcion: form.descripcion.trim(), cantidad: parseNumero(form.cantidad),
       unidad: form.unidad.trim(), prioridad: form.prioridad, fecha_requerida: form.fecha_requerida || null,
       justificacion: form.justificacion.trim() || null, enlace_referencia: form.enlace_referencia.trim() || null,
@@ -179,7 +191,15 @@ export function AsistenteSolicitud() {
         nuevoId = (data as { id: string }).id;
       }
       setGuardadoEn(Date.now());
-      setAviso(form.id ? 'Artículo actualizado.' : 'Artículo guardado en el borrador. Aún no se ha enviado a nadie.');
+      const idArticulo = nuevoId ?? form.id ?? null;
+      let textoFotos = '';
+      if (idArticulo && fotos.length > 0) {
+        const r = await subirFotosArticulo(idArticulo, fotos);
+        liberarFotos(fotos); setFotos([]); setRefrescoFotos((n) => n + 1);
+        if (r.fallidas.length > 0) setErrorPaso(`El artículo se guardó, pero ${r.fallidas.length === 1 ? 'una foto no se subió' : `${r.fallidas.length} fotos no se subieron`} (${r.fallidas.join(' · ')}). Agrégalas desde «Fotos» en su tarjeta.`);
+        else textoFotos = r.guardadas === 1 ? ' Se guardó 1 foto.' : ` Se guardaron ${r.guardadas} fotos.`;
+      }
+      setAviso((form.id ? 'Artículo actualizado.' : 'Artículo guardado en el borrador. Aún no se ha enviado a nadie.') + textoFotos);
       setRecien(nuevoId ?? form.id ?? null);
       setForm(articuloVacio(unidadInicial)); setTocadosA({}); setIntentoA(false);
       await cargar();
@@ -194,8 +214,9 @@ export function AsistenteSolicitud() {
     setForm({
       nombre: a.nombre, descripcion: a.descripcion ?? '', cantidad: String(a.cantidad), unidad: a.unidad,
       prioridad: a.prioridad, fecha_requerida: a.fecha_requerida ?? '', justificacion: a.justificacion ?? '',
-      enlace_referencia: a.enlace_referencia ?? '', proveedor_sugerido: a.proveedor_sugerido ?? ''
+      enlace_referencia: a.enlace_referencia ?? '', proveedor_sugerido: a.proveedor_sugerido ?? '', centro_costo_id: a.centro_costo_id ?? ''
     });
+    liberarFotos(fotos); setFotos([]);
     setTocadosA({}); setIntentoA(false); setAviso('Copia lista: cambia lo que haga falta y guárdala.');
     nombreRef.current?.focus();
   }
@@ -204,8 +225,9 @@ export function AsistenteSolicitud() {
     setForm({
       id: a.id, version: a.version, nombre: a.nombre, descripcion: a.descripcion ?? '', cantidad: String(a.cantidad),
       unidad: a.unidad, prioridad: a.prioridad, fecha_requerida: a.fecha_requerida ?? '', justificacion: a.justificacion ?? '',
-      enlace_referencia: a.enlace_referencia ?? '', proveedor_sugerido: a.proveedor_sugerido ?? ''
+      enlace_referencia: a.enlace_referencia ?? '', proveedor_sugerido: a.proveedor_sugerido ?? '', centro_costo_id: a.centro_costo_id ?? ''
     });
+    liberarFotos(fotos); setFotos([]);
     setTocadosA({}); setIntentoA(false); setAviso(null);
     nombreRef.current?.focus();
   }
@@ -319,6 +341,10 @@ export function AsistenteSolicitud() {
                   </select>
                 </Campo>
               </div>
+              {esMtto ? (
+                <div className="estimacion" role="note"><Icono nombre="info" /> <b>Pedido de mantenimiento.</b> Seguirá el formato de la hoja de mantenimiento: en el siguiente paso
+                  indicarás, por artículo, el centro de costo al que se carga, la justificación y las fotos. Con «Compras semanales» el flujo sigue normal.</div>
+              ) : null}
               {cat && cat.categorias.length > 0 ? (
                 <Campo etiqueta="Categoría" opcional ayuda="Algunas categorías (p. ej. papelería) tienen fechas especiales de recepción.">
                   <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
@@ -363,6 +389,11 @@ export function AsistenteSolicitud() {
       {paso === 2 && sol ? (
         <section className="tarjeta" aria-labelledby="t-paso">
           <h2 id="t-paso">2 · Artículos ({articulos.length})</h2>
+          {esMtto ? (
+            <div className="estimacion" role="note"><Icono nombre="info" /> <b>Pedido de mantenimiento.</b> Para cada artículo llena lo mismo que en la hoja:
+              cantidad, nombre, centro de costo al que se carga, imagen, justificación y descripción (medidas, color, material).
+              Después Compras pide cotización a los proveedores y la compara en la misma hoja.</div>
+          ) : null}
           {articulos.length > 0 ? (
             <ul className="lista-articulos">
               {articulos.map((a) => {
@@ -398,6 +429,15 @@ export function AsistenteSolicitud() {
               <input id={idsFormulario.nombre} ref={nombreRef} value={form.nombre} maxLength={300} autoComplete="off"
                 onChange={(e) => setForm({ ...form, nombre: e.target.value })} onBlur={() => tocarA('nombre')} />
             </Campo>
+            {esMtto ? (
+              <Campo etiqueta="Centro de costo destino" requerido error={verA('centro_costo_id')} ayuda="El centro al que se carga este artículo (por ejemplo, empaque, producción o mantenimiento).">
+                <select value={form.centro_costo_id ?? ''} onChange={(e) => setForm({ ...form, centro_costo_id: e.target.value })} onBlur={() => tocarA('centro_costo_id')}>
+                  <option value="">— Selecciona —</option>
+                  {centrosDestino.map((c) => <option key={c.id} value={c.id}>{c.nombre || c.codigo}</option>)}
+                </select>
+              </Campo>
+            ) : null}
+            <FotosDelFormulario fotos={fotos} alCambiar={setFotos} deshabilitado={guardando} />
             <div className="fila-campos">
               <Campo etiqueta="Cantidad" requerido error={verA('cantidad')}>
                 <input inputMode="decimal" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: e.target.value })} onBlur={() => tocarA('cantidad')} />
@@ -410,6 +450,9 @@ export function AsistenteSolicitud() {
                 </select>
               </Campo>
             </div>
+            <Campo etiqueta="Justificación" requerido error={verA('justificacion')} ayuda="¿Para qué se necesita? Por ejemplo: puesta de puntos eléctricos, arreglos locativos, consumibles.">
+              <textarea rows={2} value={form.justificacion} onChange={(e) => setForm({ ...form, justificacion: e.target.value })} onBlur={() => tocarA('justificacion')} />
+            </Campo>
             <Campo etiqueta="Especificaciones (medidas, material, color y demás características)" requerido error={verA('descripcion')}
               ayuda="Describe el artículo aunque tengas un enlace: el enlace va en su propio campo.">
               <textarea rows={3} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} onBlur={() => tocarA('descripcion')} />
@@ -421,7 +464,7 @@ export function AsistenteSolicitud() {
               <input value={form.proveedor_sugerido} onChange={(e) => setForm({ ...form, proveedor_sugerido: e.target.value })} onBlur={() => tocarA('proveedor_sugerido')} />
             </Campo>
             <details className="mas-opciones">
-              <summary>Más opciones: prioridad, fecha requerida y justificación</summary>
+              <summary>Más opciones: prioridad y fecha requerida</summary>
               <div className="fila-campos">
                 <Campo etiqueta="Prioridad propuesta" requerido>
                   <select value={form.prioridad} onChange={(e) => setForm({ ...form, prioridad: e.target.value })}>
@@ -432,11 +475,7 @@ export function AsistenteSolicitud() {
                   <input type="date" value={form.fecha_requerida} onChange={(e) => setForm({ ...form, fecha_requerida: e.target.value })} onBlur={() => tocarA('fecha_requerida')} />
                 </Campo>
               </div>
-              <Campo etiqueta="Justificación del artículo" opcional>
-                <textarea rows={2} value={form.justificacion} onChange={(e) => setForm({ ...form, justificacion: e.target.value })} />
-              </Campo>
             </details>
-            <p className="texto-suave">Las fotos se agregan desde el artículo, justo después de guardarlo (galería, arrastrar o cámara del celular).</p>
             <MensajeExito texto={aviso} />
             <div className="acciones-fila">
               {form.id ? (
@@ -475,6 +514,8 @@ export function AsistenteSolicitud() {
           {sol.justificacion ? <p>Justificación: {sol.justificacion}</p> : null}
           {articulos.length === 0 ? (
             <div className="mensaje mensaje-error"><span className="mensaje-texto"><Icono nombre="alerta" /> Agrega al menos un artículo para poder enviar.</span></div>
+          ) : esMtto ? (
+            <TablaFormatoSolicitud sol={sol} articulos={articulos} adjuntos={porArticulo} nombreCentro={nombreCentro} />
           ) : (
             <div className="tabla-envoltura" tabIndex={0} role="region" aria-label="Artículos de la solicitud">
               <table className="tabla tabla-datos">

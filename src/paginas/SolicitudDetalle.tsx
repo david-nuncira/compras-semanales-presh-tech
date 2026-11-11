@@ -560,7 +560,7 @@ export function SolicitudDetalle() {
                 <input type="date" value={modalArt.fecha_requerida} onChange={(e) => setModalArt({ ...modalArt, fecha_requerida: e.target.value })} />
               </Campo>
             </div>
-            <Campo etiqueta="Justificación" opcional>
+            <Campo etiqueta="Justificación" requerido error={erroresArt.justificacion}>
               <textarea rows={2} value={modalArt.justificacion} onChange={(e) => setModalArt({ ...modalArt, justificacion: e.target.value })} />
             </Campo>
             <Campo etiqueta="Enlace de compra o referencia" opcional error={erroresArt.enlace_referencia} ayuda="Ej.: https://… (no reemplaza las especificaciones).">

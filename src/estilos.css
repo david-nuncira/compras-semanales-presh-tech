@@ -880,3 +880,11 @@ button.enlace, .th-orden { min-height: 0; }
 .nav-titulo { color: var(--tinta-suave); }
 /* Los avisos de main no tapan la barra de acciones del detalle en pantallas pequeñas */
 @media (max-width: 640px) { .barra-acciones { position: static; } }
+
+/* ===================== Pedidos de mantenimiento (hoja «Formato solicitud de compra») ===================== */
+.fotos-formulario { border: 1px dashed var(--borde-fuerte); border-radius: var(--radio-m); padding: var(--e3); margin: 0; min-width: 0; }
+.fotos-formulario legend { font-weight: 600; font-size: var(--fs-s); padding: 0 var(--e2); }
+.fotos-lista { list-style: none; margin: 0 0 var(--e2); padding: 0; display: flex; flex-wrap: wrap; gap: var(--e3); }
+.fotos-lista li { display: grid; justify-items: center; gap: var(--e1); }
+.fotos-lista img { width: 5rem; height: 5rem; object-fit: cover; border-radius: var(--radio-m); border: 1px solid var(--borde); }
+.formato-titulo { margin: var(--e4) 0 var(--e1); }

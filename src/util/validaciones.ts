@@ -5,6 +5,8 @@ export interface ArticuloForm {
   nombre: string; descripcion: string; cantidad: string; unidad: string;
   prioridad: string; fecha_requerida: string; justificacion: string;
   enlace_referencia: string; proveedor_sugerido: string;
+  /** Centro de costo destino del artículo (pedidos de mantenimiento). */
+  centro_costo_id?: string;
 }
 
 export type ErroresArticulo = Partial<Record<keyof ArticuloForm, string>>;
@@ -17,7 +19,9 @@ export function enlaceValido(texto: string): boolean {
 }
 
 /** Errores por campo, para mostrarlos junto a cada campo. */
-export function validarArticulo(f: ArticuloForm, unidadesActivas: string[], hoyISO: string): ErroresArticulo {
+export function validarArticulo(
+  f: ArticuloForm, unidadesActivas: string[], hoyISO: string, opciones: { exigirDestino?: boolean } = {}
+): ErroresArticulo {
   const e: ErroresArticulo = {};
   if (f.nombre.trim().length < 2) e.nombre = 'Escribe el nombre del artículo.';
   if (f.descripcion.trim().length < 3) {
@@ -30,6 +34,8 @@ export function validarArticulo(f: ArticuloForm, unidadesActivas: string[], hoyI
   if (!unidadesActivas.some((u) => u.toLowerCase() === f.unidad.trim().toLowerCase())) {
     e.unidad = 'Elige la unidad de medida de la lista.';
   }
+  if (f.justificacion.trim().length < 5) e.justificacion = 'Explica para qué se necesita este artículo (mínimo 5 caracteres).';
+  if (opciones.exigirDestino && !f.centro_costo_id) e.centro_costo_id = 'Elige el centro de costo al que se carga este artículo.';
   if (f.fecha_requerida && f.fecha_requerida < hoyISO) e.fecha_requerida = 'La fecha requerida no puede estar en el pasado.';
   if (!enlaceValido(f.enlace_referencia)) e.enlace_referencia = 'El enlace debe empezar por http:// o https:// y no tener espacios.';
   if (f.proveedor_sugerido.trim().length > 200) e.proveedor_sugerido = 'Máximo 200 caracteres.';
