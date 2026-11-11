@@ -29,7 +29,7 @@ export function AdminCatalogos() {
   const [nCCNombre, setNCCNombre] = useState('');
   const [nProv, setNProv] = useState({ nombre: '', identificacion: '', contacto: '', telefono: '', correo: '' });
 
-  async function ejecutar(fn: () => Promise<{ error: { message: string } | null }>, msj: string) {
+  async function ejecutar(fn: () => PromiseLike<{ error: { message: string } | null }>, msj: string) {
     setError(null); setExito(null);
     const { error: e } = await fn();
     if (e) { setError(limpiarError(e.message)); return; }

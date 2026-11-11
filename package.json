@@ -12,7 +12,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test:logica": "node --experimental-strip-types --test pruebas-logica/"
+    "test:logica": "node --experimental-strip-types --test pruebas-logica/*.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.45.4",
