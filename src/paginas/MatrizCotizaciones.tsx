@@ -2,7 +2,7 @@
 // construida SOBRE las cotizaciones que ya existen (tabla `cotizaciones`).
 // Mínimo y total salen de src/util/matriz.ts. Verde = cotización SELECCIONADA.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { supabase, limpiarError } from '../supabase.ts';
 import { useCatalogos } from '../datos.ts';
 import { usePermisos } from '../permisos.ts';
@@ -11,6 +11,7 @@ import { Boton, EstadoError, EstadoVacio, Esqueleto, Icono, PanelLateral, SinPer
 import { MiniaturaArticulo, useAdjuntosArticulos } from '../componentes/Miniatura.tsx';
 import { construirMatriz, type FilaMatriz } from '../util/matriz.ts';
 import { fmtFecha } from '../util/fechas.ts';
+import { esCentroMantenimiento } from '../util/mantenimiento.ts';
 import { fmtCantidad, fmtMoneda, redondear2 } from '../util/moneda.ts';
 
 const pesos = (n: number | null) => (n === null ? '—' : fmtMoneda(n, 'COP'));
@@ -82,6 +83,8 @@ export function MatrizCotizaciones() {
     accion={<Link className="boton-secundario enlace-boton" to="/gestion">Ir a Gestión de compras</Link>} /></div>;
   if (!sol || !articulos) return <div className="contenido"><Esqueleto lineas={8} etiqueta="Cargando la matriz de cotizaciones…" /></div>;
 
+  // Los pedidos de mantenimiento se trabajan en su hoja (cotizar, elegir, aprobar y orden de compra).
+  if (esCentroMantenimiento({ codigo: sol.centro_costo_codigo, nombre: sol.centro_costo_nombre })) return <Navigate to={`/solicitudes/${sol.id}/mantenimiento`} replace />;
   const nombreDe = (p: string) => nombreProveedor.get(p) ?? 'Proveedor';
   const provs = matriz.proveedoresIds;
   const art = articulos.find((a) => a.id === abierto) ?? null;

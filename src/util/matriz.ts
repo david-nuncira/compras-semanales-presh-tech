@@ -12,12 +12,16 @@
 export interface ArticuloMatriz { id: string; cantidad: number }
 
 export interface CotizacionMatriz {
+  /** Identificador de la cotización (opcional: solo hace falta para elegirla). */
+  id?: string;
   articulo_id: string; proveedor_id: string; moneda: string; precio_unitario: number;
   es_seleccionada: boolean; creado_en: string;
 }
 
 export interface CeldaMatriz {
   proveedorId: string;
+  /** Cotización de la que sale el precio (si se conoce). */
+  cotizacionId?: string;
   precio: number;
   /** Es la cotización seleccionada por Compras (no implica que sea la más barata). */
   seleccionada: boolean;
@@ -97,7 +101,7 @@ export function construirMatriz(
     const celdas: Record<string, CeldaMatriz> = {};
     for (const p of proveedoresIds) {
       const c = vigentes.get(`${a.id}|${p}`);
-      if (c) celdas[p] = { proveedorId: p, precio: c.precio_unitario, seleccionada: c.es_seleccionada, esMinimo: false };
+      if (c) celdas[p] = { proveedorId: p, cotizacionId: c.id, precio: c.precio_unitario, seleccionada: c.es_seleccionada, esMinimo: false };
     }
     const minimo = minimoPrecios(Object.values(celdas).map((c) => c.precio));
     for (const c of Object.values(celdas)) c.esMinimo = minimo !== null && c.precio === minimo;

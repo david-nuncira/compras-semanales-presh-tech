@@ -14,6 +14,7 @@ import { LineaTiempo } from '../componentes/LineaTiempo.tsx';
 import { MiniaturaArticulo, useAdjuntosArticulos } from '../componentes/Miniatura.tsx';
 import { construirLineaTiempo, type EventoArticuloLinea } from '../util/lineaTiempo.ts';
 import { mensajeEnvio, type Estimacion } from '../util/envio.ts';
+import { esCentroMantenimiento } from '../util/mantenimiento.ts';
 import { Adjuntos } from '../componentes/Adjuntos.tsx';
 import { CalendarioSemanas } from '../componentes/CalendarioSemanas.tsx';
 import { HistorialSolicitud } from '../componentes/HistorialSolicitud.tsx';
@@ -408,8 +409,10 @@ export function SolicitudDetalle() {
 
       <div className="acciones-fila" style={{ justifyContent: 'space-between' }}>
         <h2>Artículos ({articulos.length})</h2>
-        {(permisos.gestor || permisos.consultaGlobal || permisos.aprobadorCotizacion) && s.recibida_compras_en
-          ? <Link className="boton-secundario enlace-boton" to={`/solicitudes/${s.id}/cotizaciones`}>Ver matriz de cotizaciones</Link> : null}
+        {esCentroMantenimiento({ codigo: s.centro_costo_codigo, nombre: s.centro_costo_nombre }) && (esDueno || permisos.gestor || permisos.consultaGlobal || permisos.aprobadorCotizacion)
+          ? <Link className="boton-primario enlace-boton" to={`/solicitudes/${s.id}/mantenimiento`}>Abrir la hoja de mantenimiento</Link>
+          : (permisos.gestor || permisos.consultaGlobal || permisos.aprobadorCotizacion) && s.recibida_compras_en
+            ? <Link className="boton-secundario enlace-boton" to={`/solicitudes/${s.id}/cotizaciones`}>Ver matriz de cotizaciones</Link> : null}
       </div>
       {articulos.length > 0 ? (
       <div className="tabla-envoltura" tabIndex={0} role="region" aria-label="Artículos de la solicitud">

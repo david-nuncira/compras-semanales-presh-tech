@@ -888,3 +888,20 @@ button.enlace, .th-orden { min-height: 0; }
 .fotos-lista li { display: grid; justify-items: center; gap: var(--e1); }
 .fotos-lista img { width: 5rem; height: 5rem; object-fit: cover; border-radius: var(--radio-m); border: 1px solid var(--borde); }
 .formato-titulo { margin: var(--e4) 0 var(--e1); }
+.pasos-hoja { margin-top: var(--e3); }
+.pasos-hoja li { flex: 1 1 9rem; border: 1px solid var(--borde); border-radius: var(--radio-m); padding: var(--e2) var(--e3); background: var(--tarjeta); }
+.pasos-hoja li small { display: block; color: var(--tinta-suave); }
+.pasos-hoja li.paso-actual { border-color: var(--primario); background: var(--primario-claro); }
+.pasos-hoja li.paso-hecho { border-color: var(--exito); }
+.acciones-hoja { margin: var(--e3) 0; align-items: end; }
+.campo-inline { display: inline-flex; flex-direction: column; gap: var(--e1); font-size: var(--fs-s); font-weight: 600; }
+.celda-editable { width: 7.5rem; text-align: right; min-height: 2.25rem; padding: 0.25rem 0.5rem; }
+.matriz .matriz-espera { background: var(--aviso-claro); box-shadow: inset 3px 0 0 var(--aviso); }
+.matriz-marca-espera { color: var(--aviso); }
+.orden-proveedor { margin: var(--e3) 0; }
+.orden-formulario { margin-top: var(--e3); max-width: none; }
+@media print {
+  body.imprimiendo-orden .pagina-hoja > *:not(.orden-compra) { display: none !important; }
+  body.imprimiendo-orden .orden-compra .no-imprimir, body.imprimiendo-orden .orden-compra .orden-formulario { display: none !important; }
+  body.imprimiendo-orden .orden-compra { border: 0; box-shadow: none; }
+}
