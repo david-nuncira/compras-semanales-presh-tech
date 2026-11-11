@@ -11,7 +11,7 @@ Rama: `mejora/frontend-ux` (desde `main` `2650944`). Reglas: ver `CLAUDE.md`. Ha
 | `npm run test:logica` | **Falla por el script**: en Node 24, `node --test pruebas-logica/` trata la carpeta como módulo. Con `pruebas-logica/*.test.ts`: 39 pruebas, 38 pasan, 0 fallan. |
 | `npm run build` | **Verde** (487 kB de JS, 10,9 kB de CSS). |
 
-### Decisiones pendientes de David (afectan la regla «verde antes de cada commit»)
+### Corregido en el commit «Base verde» (ver «Avance»)
 1. **Typecheck:** `AdminCatalogos.tsx` no está en la lista protegida. Propuesta: corregir los tipos sin cambiar la lógica, como primer commit de la Fase 1.
 2. **Script de pruebas:** cambiar `test:logica` a `pruebas-logica/*.test.ts` (solo `package.json`).
 3. **`package-lock.json`:** generarlo y versionarlo para que `npm ci` funcione y Cloudflare instale lo mismo.
@@ -58,3 +58,4 @@ Verificación:
 ## Avance
 
 - **Fase 0:** hecho: rama creada, `CLAUDE.md` copiado a la raíz, `AUDITORIA.md`, `PLAN.md`, `REQUIERE_BACKEND.md`. Probado: los cuatro comandos de base (resultado arriba). Pendiente: las tres decisiones de arriba.
+- **Base corregida (antes de la Fase 1):** hecho: `AdminCatalogos.tsx` (solo el tipo del parámetro de `ejecutar`, de `Promise` a `PromiseLike`; sin cambio de lógica), script `test:logica` con `pruebas-logica/*.test.ts` y `package-lock.json` generado. Probado: `npm ci` OK, typecheck con 0 errores, pruebas 38 pasan / 0 fallan / 1 omitida, build OK. Pendiente: el glob del script requiere Node 22 o superior para `node --test`; con Node 20 habría que listar los archivos.
