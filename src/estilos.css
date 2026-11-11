@@ -856,3 +856,27 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px
 /* Textos pequeños de la experiencia guiada con contraste AA */
 .pasos-formulario, .pasos-solicitud p, .accion-contenido > span, .checklist-solicitud li, .checklist-solicitud li small,
 .mini-ruta small, .bienvenida-actualizacion, .siguiente-paso p, .aviso-devolucion p, .accion-destacada p { color: var(--tinta-suave); }
+
+/* ===================== Pulido final de estilos (fusión con main) ===================== */
+/* Contraste AA en textos pequeños y marcadores de la paleta de main */
+input::placeholder, textarea::placeholder { color: #5e6e65; }
+.sobre-titulo { color: #4f6759; }
+.insignia-suave { color: var(--tinta-suave); }
+.estado-registro.inactivo { color: #5d615b; }
+.modal-cerrar, .notificacion-cerrar { color: #4f6157; }
+.estado-icono { color: #3d6a4b; }
+.tabla th { color: var(--tinta-suave); }
+.inicio-solicitud p, .checklist-solicitud li > span { color: var(--tinta-suave); }
+/* Botones que se usan como enlace dentro de tablas y listas no heredan la altura mínima de 40 px */
+button.enlace, .th-orden { min-height: 0; }
+/* Fichas del Inicio: alineadas a la izquierda como en la experiencia guiada */
+.tablero .ficha { align-items: flex-start; }
+/* La matriz conserva sus separadores y un relleno más compacto frente a la tabla general */
+.matriz th, .matriz td { border-right: 1px solid var(--borde); padding: 0.6rem 0.7rem; }
+.matriz th { text-transform: none; letter-spacing: 0; font-size: 0.8rem; }
+/* El menú lateral usa el verde corporativo de main */
+.lateral-marca { color: var(--primario); }
+.nav-enlace.active { background: var(--primario-claro); color: var(--primario); }
+.nav-titulo { color: var(--tinta-suave); }
+/* Los avisos de main no tapan la barra de acciones del detalle en pantallas pequeñas */
+@media (max-width: 640px) { .barra-acciones { position: static; } }
