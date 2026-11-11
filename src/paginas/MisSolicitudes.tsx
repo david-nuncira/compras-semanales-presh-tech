@@ -9,6 +9,7 @@ import { Campo, MensajeError, Cargando, Paginador, InsigniaSolicitud, Icono, Pes
 import { etiquetaSemana, fmtFecha } from '../util/fechas.ts';
 import { generarCSV, descargarCSV } from '../util/csv.ts';
 import { useEstadoURL } from '../util/estadoUrl.ts';
+import { pedidoCerrado } from '../util/cierre.ts';
 
 const POR_PAGINA = 20;
 const VACIO_URL: { bandeja: string; q: string } = { bandeja: 'todas', q: '' };
@@ -127,7 +128,7 @@ export function MisSolicitudes() {
                     {f.estado === 'en_correccion' ? <div><Link to={`/nueva-solicitud/${f.id}?paso=2`}>Corregir y reenviar</Link></div> : null}
                     {f.es_extraordinaria ? <> <span className="insignia insignia-extra">Extraordinaria</span></> : null}</td>
                   <td>
-                    <InsigniaSolicitud estado={f.estado} />
+                    <InsigniaSolicitud estado={f.estado} cerrada={pedidoCerrado(f)} />
                     {f.estado === 'en_correccion' && (f.ultimo_motivo_jefe || f.ultimo_motivo_devolucion)
                       ? <div className="texto-suave">Motivo: {f.ultimo_motivo_devolucion ?? f.ultimo_motivo_jefe}</div> : null}
                     {f.estado === 'rechazada' && f.ultimo_motivo_jefe ? <div className="texto-suave">Motivo: {f.ultimo_motivo_jefe}</div> : null}

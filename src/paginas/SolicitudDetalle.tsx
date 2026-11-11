@@ -15,6 +15,7 @@ import { MiniaturaArticulo, useAdjuntosArticulos } from '../componentes/Miniatur
 import { construirLineaTiempo, type EventoArticuloLinea } from '../util/lineaTiempo.ts';
 import { mensajeEnvio, type Estimacion } from '../util/envio.ts';
 import { esCentroMantenimiento } from '../util/mantenimiento.ts';
+import { pedidoCerrado } from '../util/cierre.ts';
 import { Adjuntos } from '../componentes/Adjuntos.tsx';
 import { CalendarioSemanas } from '../componentes/CalendarioSemanas.tsx';
 import { HistorialSolicitud } from '../componentes/HistorialSolicitud.tsx';
@@ -46,6 +47,9 @@ function siguientePasoSolicitud(s: VSolicitud, esDueno: boolean, editable: boole
   }
   if (s.estado === 'pendiente_aprobacion' || s.estado === 'programada') {
     return { icono: '✓', etiqueta: 'EN REVISIÓN', titulo: 'Tu jefe está revisando la solicitud', descripcion: 'No necesitas hacer nada por ahora. Te avisaremos cuando cambie el estado.', tono: 'revision' };
+  }
+  if (pedidoCerrado(s)) {
+    return { icono: '✓', etiqueta: 'PEDIDO CERRADO', titulo: 'Este pedido ya terminó', descripcion: 'Todos sus artículos se cerraron. Puedes consultar aquí el historial y los documentos.', tono: 'cerrada' };
   }
   if (s.estado === 'recibida_compras' || s.estado === 'enviada') {
     return { icono: '→', etiqueta: 'EN COMPRAS', titulo: 'Compras continúa con el proceso', descripcion: 'El equipo revisará las opciones de compra y podrás ver el avance desde esta misma pantalla.', tono: 'compras' };
@@ -255,7 +259,7 @@ export function SolicitudDetalle() {
         <div className="solicitud-identidad">
           <button type="button" className="volver-contexto" onClick={() => navegar(-1)}>← Volver</button>
           <span className="sobre-titulo">SOLICITUD DE COMPRA</span>
-          <div className="acciones-fila solicitud-titulo"><h1>{s.numero}</h1><InsigniaSolicitud estado={s.estado} /></div>
+          <div className="acciones-fila solicitud-titulo"><h1>{s.numero}</h1><InsigniaSolicitud estado={s.estado} cerrada={pedidoCerrado(s)} /></div>
           <div className="solicitud-etiquetas">
             {s.es_extraordinaria ? <span className="insignia insignia-extra">Extraordinaria</span> : null}
             {s.flujo === 'anterior' ? <span className="insignia-suave">Flujo anterior</span> : null}

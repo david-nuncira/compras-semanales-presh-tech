@@ -8,6 +8,7 @@ import { Campo, MensajeError, Cargando, Paginador, InsigniaSolicitud, Pestanas }
 import { etiquetaSemana, fmtFecha, fmtFechaHora } from '../util/fechas.ts';
 import { generarCSV, descargarCSV } from '../util/csv.ts';
 import { useEstadoURL } from '../util/estadoUrl.ts';
+import { pedidoCerrado } from '../util/cierre.ts';
 
 const POR_PAGINA = 25;
 const VACIO_URL: { grupo: string; area: string; q: string; extra: boolean } = { grupo: 'todas', area: '', q: '', extra: false };
@@ -121,7 +122,7 @@ export function ConsultaGlobal() {
                 <tr key={f.id}>
                   <td><Link to={`/solicitudes/${f.id}`}>{f.numero}</Link>
                     {f.es_extraordinaria ? <div><span className="insignia insignia-extra">Extraordinaria</span></div> : null}</td>
-                  <td><InsigniaSolicitud estado={f.estado} /></td>
+                  <td><InsigniaSolicitud estado={f.estado} cerrada={pedidoCerrado(f)} /></td>
                   <td>{f.en_bandeja_compras ? 'Sí, en gestión' : <b>No, aún no</b>}</td>
                   <td>{f.solicitante_nombre} · {f.area_nombre}</td>
                   <td>{f.aprobador_jefe_nombre ?? (f.flujo === 'anterior' ? 'Flujo anterior' : '—')}</td>

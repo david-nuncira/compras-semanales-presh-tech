@@ -136,6 +136,11 @@ export function construirLineaTiempo(e: EntradaLinea): EtapaLinea[] {
   if (sol.estado === 'en_correccion') completa = completa.map(() => false);
   if (sol.estado === 'rechazada') completa = completa.map((_, i) => i === 0);
   if (sol.estado === 'borrador') completa = completa.map(() => false);
+  // Si todos los artículos están cerrados, el pedido terminó: ninguna etapa queda «en curso».
+  const cierreCompleto = total > 0 && desde(7) === total
+    && !['borrador', 'en_correccion', 'rechazada', 'cancelada'].includes(sol.estado);
+  const naturalCompleta = [...completa];
+  if (cierreCompleto) completa = completa.map(() => true);
   // Las etapas son secuenciales: no hay «completada» después de una pendiente.
   const primeraPendiente = completa.findIndex((c) => !c);
   if (primeraPendiente >= 0) completa = completa.map((_, i) => i < primeraPendiente);
@@ -214,6 +219,19 @@ export function construirLineaTiempo(e: EntradaLinea): EtapaLinea[] {
     if (et.estado === 'atrasada') et.comentario = `${et.comentario}. Hay artículos con atraso.`;
   }
 
+  if (cierreCompleto) {
+    etapas.forEach((et, i) => {
+      if (!naturalCompleta[i] && et.estado === 'completada') {
+        et.estado = 'omitida'; et.fecha = null; et.responsable = null;
+        et.comentario = 'El pedido se cerró sin registrar este paso.';
+      }
+    });
+  }
+  const ct = por('cotizacion');
+  if (ct.estado === 'completada' && !cot && evArt.length > 0 && total > 0 && vivos.every((x) => x.fecha_compra)) {
+    ct.estado = 'omitida'; ct.fecha = null; ct.responsable = null;
+    ct.comentario = 'Compra directa: no requirió cotización.';
+  }
   if (sol.estado === 'cancelada') {
     const c = etapas.find((x) => x.estado === 'cancelada');
     if (c) {
@@ -230,7 +248,7 @@ export function construirLineaTiempo(e: EntradaLinea): EtapaLinea[] {
     const envio = sol.ultimo_envio_en ?? sol.enviado_en;
     if (et.estado === 'actual' || et.estado === 'atrasada') {
       // En curso: desde que empezó esta etapa (o desde la anterior) hasta ahora.
-      const base = (et.clave === 'aprobacion' ? et.fecha : null) ?? previa;
+      const base = et.fecha ?? previa;
       if (base) et.duracionHoras = horasEntre(base, e.ahora);
     } else if (et.fecha) {
       const base = et.clave === 'aprobacion' ? (envio ?? previa) : previa;

@@ -83,7 +83,9 @@ const VISTA_SOLICITUD: Record<EstadoSolicitud, { tono: Tono; icono: NombreIcono 
 };
 
 /** Estado de la solicitud con color, ícono y texto. */
-export function InsigniaSolicitud({ estado }: { estado: EstadoSolicitud }) {
+export function InsigniaSolicitud({ estado, cerrada }: { estado: EstadoSolicitud; cerrada?: boolean }) {
+  // Pedido terminado: todos sus artículos están cerrados (ver util/cierre.ts).
+  if (cerrada) return <Insignia tono="exito" icono="candado">Cerrada</Insignia>;
   const v = VISTA_SOLICITUD[estado] ?? { tono: 'neutro' as Tono, icono: 'info' as NombreIcono };
   return <Insignia tono={v.tono} icono={v.icono}>{ETIQUETA_ESTADO_SOLICITUD[estado] ?? estado}</Insignia>;
 }

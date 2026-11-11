@@ -151,6 +151,40 @@ test('duración: horas desde la etapa anterior; la actual cuenta hasta ahora', (
   assert.equal(t[1].duracionHoras, 167);
 });
 
+test('pedido cerrado: ninguna etapa queda en curso y lo que no ocurrió figura «no aplica»', () => {
+  const t = construirLineaTiempo(entrada({
+    estado: 'recibida_compras', enviado_en: '2026-03-03T15:00:00Z', ultimo_envio_en: '2026-03-03T15:00:00Z',
+    aprobado_en: '2026-03-04T10:00:00Z', recibida_compras_en: '2026-03-09T12:00:00Z'
+  }, [ART({ etapa: 'cerrado', fecha_compra: '2026-03-10', primera_llegada: '2026-03-12', ultima_llegada: '2026-03-12',
+    cerrado_en: '2026-03-15T10:00:00Z', recibido_neto: 4, entregado_neto: 0, disponible_almacen: 4 })]));
+  assert.ok(!t.some((x) => x.estado === 'actual' || x.estado === 'pendiente'));
+  assert.equal(t[10].estado, 'completada');
+  assert.equal(t[8].estado, 'omitida');
+  assert.match(t[8].comentario ?? '', /se cerró/);
+});
+
+test('compra directa: la cotización figura «no aplica», no completada sin fecha', () => {
+  const t = construirLineaTiempo(entrada({
+    estado: 'recibida_compras', enviado_en: '2026-03-03T15:00:00Z', ultimo_envio_en: '2026-03-03T15:00:00Z',
+    aprobado_en: '2026-03-04T10:00:00Z', recibida_compras_en: '2026-03-09T12:00:00Z'
+  }, [ART({ etapa: 'recibido_total', fecha_compra: '2026-03-10', primera_llegada: '2026-03-12', ultima_llegada: '2026-03-12', recibido_neto: 1 })],
+  { eventosArticulos: [{ creado_en: '2026-03-10T10:00:00Z', tabla: 'compras', actor_nombre: 'Persona de prueba', nuevo: null }] }));
+  assert.equal(t[4].estado, 'omitida');
+  assert.match(t[4].comentario ?? '', /Compra directa/);
+  assert.equal(t[5].estado, 'completada');
+});
+
+test('en curso: «lleva» cuenta desde el inicio de la propia etapa, no desde la anterior', () => {
+  const t = construirLineaTiempo(entrada({
+    estado: 'recibida_compras', enviado_en: '2026-03-03T15:00:00Z', ultimo_envio_en: '2026-03-03T15:00:00Z',
+    aprobado_en: '2026-03-04T10:00:00Z', recibida_compras_en: '2026-03-09T12:00:00Z'
+  }, [ART({ etapa: 'recibido_total', fecha_compra: '2026-03-10', primera_llegada: '2026-03-10', ultima_llegada: '2026-03-10', recibido_neto: 1, entregado_neto: 0 })],
+  { eventosArticulos: [{ creado_en: '2026-03-10T13:30:00Z', tabla: 'movimientos', actor_nombre: 'Persona de prueba', nuevo: { tipo: 'entrega' } }] }));
+  const entrega = t.find((x) => x.clave === 'entrega')!;
+  assert.equal(entrega.estado, 'actual');
+  assert.equal(entrega.duracionHoras, 0.5); // 13:30 → 14:00 del «ahora» de la prueba
+});
+
 test('textoDuracion', () => {
   assert.equal(textoDuracion(null), '');
   assert.equal(textoDuracion(0.2), 'menos de 1 h');
