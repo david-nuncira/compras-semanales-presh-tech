@@ -905,3 +905,9 @@ button.enlace, .th-orden { min-height: 0; }
   body.imprimiendo-orden .orden-compra .no-imprimir, body.imprimiendo-orden .orden-compra .orden-formulario { display: none !important; }
   body.imprimiendo-orden .orden-compra { border: 0; box-shadow: none; }
 }
+
+/* ===================== Interfaz más intuitiva: guías por paso y grupos del formulario ===================== */
+.guia-paso { display: flex; gap: var(--e2); align-items: flex-start; margin: var(--e2) 0 var(--e4); padding: var(--e3); border-radius: var(--radio-m); background: var(--info-claro); border: 1px solid var(--info); color: var(--tinta); }
+.guia-paso .icono { margin-top: 0.2rem; color: var(--info); }
+.grupo-titulo { margin: var(--e4) 0 0; padding-top: var(--e3); border-top: 1px solid var(--borde); font-size: var(--fs-l); color: var(--primario); }
+.formulario-articulo .grupo-titulo:first-of-type { border-top: 0; padding-top: 0; margin-top: var(--e2); }

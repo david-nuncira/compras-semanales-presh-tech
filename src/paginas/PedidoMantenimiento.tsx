@@ -299,6 +299,9 @@ export function PedidoMantenimiento() {
         })}
       </ol>
 
+      {(() => { const k = resumen.pasos.findIndex((x) => x === 'actual'); const p = PASOS_MANTENIMIENTO[k]; return p
+        ? <p className="guia-paso" role="status"><Icono nombre="info" /> <b>Ahora toca: {p.titulo}.</b> {p.quien}: {p.detalle}</p>
+        : <p className="guia-paso" role="status"><Icono nombre="check-circulo" /> <b>Pedido completo.</b> Todos los pasos están hechos.</p>; })()}
       <EncabezadoFormato sol={sol} aprobadoPor={aprobadores.length ? aprobadores.join(', ') : null} />
 
       {esGestor ? (

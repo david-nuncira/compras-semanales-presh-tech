@@ -27,6 +27,12 @@ import { mensajeEnvio, type Estimacion, type RespuestaEnvio } from '../util/envi
 interface FormArticulo extends ArticuloForm { id?: string; version?: number }
 
 const PASOS = ['General', 'Artículos', 'Revisión', 'Envío'] as const;
+const GUIA_PASO = [
+  'Paso 1 de 4: cuéntanos de qué área es el pedido, para qué es y cuándo lo necesitas. Todavía no se envía a nadie.',
+  'Paso 2 de 4: agrega cada artículo con su foto, justificación y descripción. Puedes guardar varios; luego pasas a revisar.',
+  'Paso 3 de 4: revisa que todo esté correcto. Si algo falta, vuelve al paso anterior desde los botones de arriba.',
+  'Paso 4 de 4: envía el pedido a tu jefe. Él decide y te avisamos aquí.'
+] as const;
 
 function articuloVacio(unidad: string): FormArticulo {
   return {
@@ -77,6 +83,7 @@ export function AsistenteSolicitud() {
   if (!areaId) erroresG.area = 'Tu usuario no tiene área asignada. Pide a administración que te vincule.';
   if (!ccId) erroresG.cc = centros.length === 0
     ? 'Tu área no tiene centros de costo autorizados. Avisa a administración.' : 'Elige el centro de costo.';
+  if (justificacion.trim().length < 5) erroresG.justificacion = 'Explica en pocas palabras para qué es este pedido (mínimo 5 caracteres).';
   if (extra && motivoExtra.trim().length < 10) erroresG.motivoExtra = 'Describe la emergencia (mínimo 10 caracteres).';
   const verG = (k: string) => (tocadosG[k] || intentoG ? erroresG[k] : undefined);
   const tocarG = (k: string) => setTocadosG((t) => ({ ...t, [k]: true }));
@@ -152,7 +159,7 @@ export function AsistenteSolicitud() {
     try {
       const { data, error } = await supabase.from('solicitudes').insert({
         area_id: areaId, centro_costo_id: ccId, categoria_id: categoria || null,
-        justificacion: justificacion.trim() || null, semana_lunes: semana,
+        justificacion: justificacion.trim(), semana_lunes: semana,
         es_extraordinaria: extra, motivo_extraordinaria: extra ? motivoExtra.trim() : null
       }).select('id').single();
       if (error) throw new Error(limpiarError(error.message));
@@ -293,6 +300,8 @@ export function AsistenteSolicitud() {
         })}
       </ol>
 
+      <p className="guia-paso" role="status"><Icono nombre="info" /> {GUIA_PASO[paso - 1]}</p>
+
       {conDevolucion ? (
         <div className="mensaje mensaje-error" role="status">
           <span className="mensaje-texto"><Icono nombre="devolver" /> <b>Devuelta para corrección.</b> Motivo: {sol?.ultimo_motivo_devolucion ?? sol?.ultimo_motivo_jefe ?? 'sin motivo registrado'}.
@@ -372,8 +381,8 @@ export function AsistenteSolicitud() {
                 <p className="campo-ayuda">Cada tarjeta indica cuándo la recibiría Compras si tu jefe la aprueba antes del cierre.</p>
                 <CalendarioSemanas valor={semana} alCambiar={setSemana} categoria={categoria || null} extraordinaria={extra} />
               </fieldset>
-              <Campo etiqueta="Justificación general" opcional>
-                <textarea rows={2} value={justificacion} onChange={(e) => setJustificacion(e.target.value)} />
+              <Campo etiqueta="Justificación general" requerido error={verG('justificacion')} ayuda="¿Para qué es este pedido en conjunto? Por ejemplo: reposición de la semana, arreglos locativos de la planta.">
+                <textarea rows={2} value={justificacion} onChange={(e) => setJustificacion(e.target.value)} onBlur={() => tocarG('justificacion')} />
               </Campo>
               <div className="acciones-fila">
                 <Boton type="submit" variante="primario" cargando={guardando}>Guardar borrador y continuar</Boton>
@@ -425,8 +434,9 @@ export function AsistenteSolicitud() {
             onSubmit={(e) => { e.preventDefault(); void guardarArticulo(); }}>
             <h3>{form.id ? 'Editar artículo' : articulos.length > 0 ? 'Agregar otro artículo' : 'Agregar el primer artículo'}</h3>
             <p className="leyenda-campos"><span className="marca-obligatorio">* obligatorio</span> · los demás son opcionales.</p>
+            <h4 className="grupo-titulo">1. ¿Qué necesitas?</h4>
             <Campo etiqueta="Nombre del artículo" requerido error={verA('nombre')}>
-              <input id={idsFormulario.nombre} ref={nombreRef} value={form.nombre} maxLength={300} autoComplete="off"
+              <input id={idsFormulario.nombre} ref={nombreRef} value={form.nombre} maxLength={300} autoComplete="off" placeholder="Ej.: Tubo EMT 3/4 x 3 metros"
                 onChange={(e) => setForm({ ...form, nombre: e.target.value })} onBlur={() => tocarA('nombre')} />
             </Campo>
             {esMtto ? (
@@ -437,7 +447,6 @@ export function AsistenteSolicitud() {
                 </select>
               </Campo>
             ) : null}
-            <FotosDelFormulario fotos={fotos} alCambiar={setFotos} deshabilitado={guardando} />
             <div className="fila-campos">
               <Campo etiqueta="Cantidad" requerido error={verA('cantidad')}>
                 <input inputMode="decimal" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: e.target.value })} onBlur={() => tocarA('cantidad')} />
@@ -450,13 +459,17 @@ export function AsistenteSolicitud() {
                 </select>
               </Campo>
             </div>
-            <Campo etiqueta="Justificación" requerido error={verA('justificacion')} ayuda="¿Para qué se necesita? Por ejemplo: puesta de puntos eléctricos, arreglos locativos, consumibles.">
+            <h4 className="grupo-titulo">2. Foto del artículo</h4>
+            <FotosDelFormulario fotos={fotos} alCambiar={setFotos} deshabilitado={guardando} />
+            <h4 className="grupo-titulo">3. ¿Para qué y cómo es?</h4>
+            <Campo etiqueta="Justificación" requerido error={verA('justificacion')} ayuda="¿Para qué se necesita este artículo? Por ejemplo: puesta de puntos eléctricos, arreglos locativos, consumibles.">
               <textarea rows={2} value={form.justificacion} onChange={(e) => setForm({ ...form, justificacion: e.target.value })} onBlur={() => tocarA('justificacion')} />
             </Campo>
             <Campo etiqueta="Especificaciones (medidas, material, color y demás características)" requerido error={verA('descripcion')}
               ayuda="Describe el artículo aunque tengas un enlace: el enlace va en su propio campo.">
               <textarea rows={3} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} onBlur={() => tocarA('descripcion')} />
             </Campo>
+            <h4 className="grupo-titulo">4. Referencias <span className="marca-opcional">(opcional)</span></h4>
             <Campo etiqueta="Enlace de compra o referencia" opcional error={verA('enlace_referencia')} ayuda="Ej.: https://… (no reemplaza las especificaciones).">
               <input type="url" value={form.enlace_referencia} onChange={(e) => setForm({ ...form, enlace_referencia: e.target.value })} onBlur={() => tocarA('enlace_referencia')} />
             </Campo>
@@ -493,8 +506,10 @@ export function AsistenteSolicitud() {
                 </>
               )}
             </div>
+            {formVirgen && articulos.length === 0 ? <p className="texto-suave" role="status">Guarda al menos un artículo para poder continuar a la revisión.</p> : null}
+            {!formVirgen && !form.id ? <p className="texto-suave" role="status">Tienes un artículo sin guardar: pulsa «Guardar y agregar otro» o «Guardar y continuar».</p> : null}
           </form>
-          <div className="acciones-fila pie-paso"><Boton onClick={() => irAPaso(1)}>← Datos generales</Boton></div>
+          <div className="acciones-fila pie-paso"><Boton onClick={() => irAPaso(1)}>← Datos generales</Boton><span className="texto-suave">{articulos.length} artículo{articulos.length === 1 ? '' : 's'} guardado{articulos.length === 1 ? '' : 's'}</span></div>
           <ModalConfirmar abierto={!!porEliminar} titulo="Eliminar artículo" peligro etiqueta="Eliminar"
             texto={`¿Eliminar "${porEliminar?.nombre ?? ''}" del borrador? No se puede deshacer.`}
             alConfirmar={async () => { if (porEliminar) await eliminar(porEliminar); }} alCerrar={() => setPorEliminar(null)} />
@@ -551,6 +566,7 @@ export function AsistenteSolicitud() {
           <div className="acciones-fila pie-paso">
             <Boton onClick={() => irAPaso(2)}>← Volver a los artículos</Boton>
             <Boton variante="primario" disabled={!puedeEnviar} onClick={() => irAPaso(4)}>Continuar al envío →</Boton>
+            {!puedeEnviar ? <span className="texto-suave" role="status">{articulos.length === 0 ? 'Agrega al menos un artículo para continuar.' : 'Hay un aviso arriba que debes resolver antes de enviar.'}</span> : null}
           </div>
         </section>
       ) : null}
