@@ -12,6 +12,7 @@ import {
   InsigniaEtapa, InsigniaAprobacion, BotonConMotivo
 } from '../componentes/UI.tsx';
 import { Adjuntos } from '../componentes/Adjuntos.tsx';
+import { ProveedorFormulario } from '../componentes/ProveedorFormulario.tsx';
 import { etiquetaSemana, fmtFecha, fmtFechaHora, hoyBogotaISO } from '../util/fechas.ts';
 import { fmtMoneda, fmtCantidad, parseNumero, redondear2 } from '../util/moneda.ts';
 
@@ -34,6 +35,7 @@ export function ArticuloGestion({ idArticulo, enPanel, alCambiar }: {
   alCambiarRef.current = alCambiar;
   const { tiene } = useSesion();
   const { cat, error: errorCatalogos, recargar: recargarCatalogos } = useCatalogos();
+  const [nuevoProv, setNuevoProv] = useState<null | 'cot' | 'directa'>(null);
   const esGestor = tiene('compras') || tiene('administrador');
   const esAlmacen = tiene('almacen');
 
@@ -593,6 +595,7 @@ export function ArticuloGestion({ idArticulo, enPanel, alCambiar }: {
                 {cat?.proveedores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
             </Campo>
+            <div><button type="button" className="boton-silencioso" onClick={() => setNuevoProv('cot')}>+ ¿No está en la lista? Agregar proveedor nuevo</button></div>
             <div className="fila-campos">
               <Campo etiqueta="Precio unitario" requerido>
                 <input inputMode="decimal" data-numero="true" min="0" value={mCot.precio} onChange={(e) => setMCot({ ...mCot, precio: e.target.value })} />
@@ -651,6 +654,7 @@ export function ArticuloGestion({ idArticulo, enPanel, alCambiar }: {
           <div className="cotizacion-ayuda"><strong>Compra directa hasta $500.000 COP</strong><p>La solicitud ya debe contar con la aprobación del jefe. Registra proveedor, cantidad e importe; el servidor comprueba el total antes de guardar.</p></div>
           {errorCatalogos ? <><MensajeError texto={errorCatalogos} /><button type="button" className="boton-secundario" onClick={() => void recargarCatalogos()}>Recargar proveedores</button></> : null}
           <Campo etiqueta="Proveedor" requerido><select value={mDirecta.proveedor} onChange={e => setMDirecta({ ...mDirecta, proveedor: e.target.value })}><option value="">— Selecciona —</option>{cat?.proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></Campo>
+          <div><button type="button" className="boton-silencioso" onClick={() => setNuevoProv('directa')}>+ ¿No está en la lista? Agregar proveedor nuevo</button></div>
           <div className="fila-campos"><Campo etiqueta="Precio unitario en COP" requerido><input inputMode="decimal" data-numero="true" min="0" value={mDirecta.precio} onChange={e => setMDirecta({ ...mDirecta, precio: e.target.value })} /></Campo><Campo etiqueta="Cantidad a comprar" requerido><input inputMode="decimal" data-numero="true" data-positivo="true" value={mDirecta.cantidad} onChange={e => setMDirecta({ ...mDirecta, cantidad: e.target.value })} /></Campo></div>
           <div className="fila-campos"><Campo etiqueta="Impuestos"><input inputMode="decimal" data-numero="true" min="0" placeholder="0" value={mDirecta.impuestos} onChange={e => setMDirecta({ ...mDirecta, impuestos: e.target.value })} /></Campo><Campo etiqueta="Descuentos"><input inputMode="decimal" data-numero="true" min="0" placeholder="0" value={mDirecta.descuentos} onChange={e => setMDirecta({ ...mDirecta, descuentos: e.target.value })} /></Campo><Campo etiqueta="Otros cargos"><input inputMode="decimal" data-numero="true" min="0" placeholder="0" value={mDirecta.otros} onChange={e => setMDirecta({ ...mDirecta, otros: e.target.value })} /></Campo></div>
           <div className="cotizacion-total"><span>Total de la compra</span><strong>{totalFormulario(mDirecta) === null ? 'Completa los importes' : fmtMoneda(totalFormulario(mDirecta), 'COP')}</strong></div>
@@ -879,6 +883,12 @@ export function ArticuloGestion({ idArticulo, enPanel, alCambiar }: {
           </Formulario>
         ) : null}
       </Modal>
+      <ProveedorFormulario abierto={!!nuevoProv} alCerrar={() => setNuevoProv(null)}
+        alGuardar={async (nuevo) => {
+          await recargarCatalogos();
+          if (nuevoProv === 'cot') setMCot((m) => (m ? { ...m, proveedor: nuevo.id } : m));
+          else setMDirecta((m) => (m ? { ...m, proveedor: nuevo.id } : m));
+        }} />
     </div>
   );
 }

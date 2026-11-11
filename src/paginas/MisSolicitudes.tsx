@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, limpiarError } from '../supabase.ts';
+import { supabase, rpc, limpiarError } from '../supabase.ts';
 import { useSesion } from '../contexto/Sesion.tsx';
 import { useActualizacionPeriodica } from '../datos.ts';
 import type { VSolicitud, Etapa } from '../tipos.ts';
 import { ETIQUETA_ESTADO_SOLICITUD, ETIQUETA_ETAPA } from '../tipos.ts';
-import { Campo, MensajeError, Cargando, Paginador, InsigniaSolicitud, Icono, Pestanas } from '../componentes/UI.tsx';
+import { Campo, MensajeError, MensajeExito, Cargando, Paginador, InsigniaSolicitud, Icono, Pestanas, ModalConfirmar, BotonConMotivo } from '../componentes/UI.tsx';
 import { etiquetaSemana, fmtFecha } from '../util/fechas.ts';
 import { generarCSV, descargarCSV } from '../util/csv.ts';
 import { useEstadoURL } from '../util/estadoUrl.ts';
@@ -39,6 +39,8 @@ export function MisSolicitudes() {
   const filtroTexto = filtrosUrl.q;
   const [error, setError] = useState<string | null>(null);
   const [devueltas, setDevueltas] = useState(0);
+  const [porEliminar, setPorEliminar] = useState<VSolicitud | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     setError(null);
@@ -117,7 +119,7 @@ export function MisSolicitudes() {
               <tr>
                 <th>Número</th><th>Estado</th><th>Semana objetivo</th><th>Recepción Compras</th>
                 <th className="oculto-movil">Centro de costo</th>
-                <th>Artículos</th><th className="oculto-movil">Creada</th>
+                <th>Artículos</th><th className="oculto-movil">Creada</th><th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -139,6 +141,18 @@ export function MisSolicitudes() {
                   <td className="oculto-movil">{f.centro_costo_codigo} · {f.centro_costo_nombre}</td>
                   <td className="numero">{f.total_articulos}</td>
                   <td className="oculto-movil">{fmtFecha(f.creado_en)}</td>
+                  <td>
+                    <div className="acciones-fila">
+                      <Link to={`/solicitudes/${f.id}`}>Ver</Link>
+                      {f.estado === 'borrador' || f.estado === 'en_correccion'
+                        ? <Link to={`/nueva-solicitud/${f.id}?paso=2`}>Editar</Link> : null}
+                      {f.estado === 'borrador'
+                        ? <button type="button" className="boton-silencioso" onClick={() => setPorEliminar(f)}>Eliminar</button> : null}
+                      {f.estado === 'en_correccion'
+                        ? <BotonConMotivo etiqueta="Cancelar" clase="boton-silencioso" titulo={`Cancelar ${f.numero}`} descripcion="La solicitud se cancela y queda registrada con tu motivo. No se puede deshacer."
+                            onConfirmar={async (motivo) => { await rpc('fn_cancelar_solicitud', { p_solicitud: f.id, p_motivo: motivo, p_version: f.version }); await cargar(); }} /> : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -146,6 +160,19 @@ export function MisSolicitudes() {
         </div>
       )}
       <Paginador pagina={pagina} porPagina={POR_PAGINA} total={total} alCambiar={irAPagina} />
+      <MensajeExito texto={aviso} />
+      <ModalConfirmar abierto={!!porEliminar} titulo="Eliminar borrador" peligro etiqueta="Eliminar"
+        texto={`¿Eliminar el borrador ${porEliminar?.numero ?? ''} con sus artículos? Aún no se ha enviado a nadie. No se puede deshacer.`}
+        alConfirmar={async () => {
+          if (!porEliminar) return;
+          const a = await supabase.from('articulos').delete().eq('solicitud_id', porEliminar.id);
+          if (a.error) throw new Error(limpiarError(a.error.message));
+          const s = await supabase.from('solicitudes').delete().eq('id', porEliminar.id).select('id');
+          if (s.error) throw new Error(limpiarError(s.error.message));
+          if (!s.data || s.data.length === 0) throw new Error('No se pudo eliminar: solo se eliminan borradores que aún no se enviaron.');
+          setAviso(`Borrador ${porEliminar.numero} eliminado.`);
+          await cargar();
+        }} alCerrar={() => setPorEliminar(null)} />
 
     </div>
   );

@@ -17,6 +17,7 @@ import {
 } from '../componentes/UI.tsx';
 import { MiniaturaArticulo, useAdjuntosArticulos } from '../componentes/Miniatura.tsx';
 import { EncabezadoFormato } from '../componentes/FormatoSolicitud.tsx';
+import { ProveedorFormulario } from '../componentes/ProveedorFormulario.tsx';
 import { construirMatriz, type FilaMatriz } from '../util/matriz.ts';
 import { esCentroMantenimiento, estadoPasosMantenimiento, PASOS_MANTENIMIENTO } from '../util/mantenimiento.ts';
 import { fmtFecha, hoyBogotaISO } from '../util/fechas.ts';
@@ -63,7 +64,8 @@ export function PedidoMantenimiento() {
   const { id } = useParams<{ id: string }>();
   const { perfil } = useSesion();
   const permisos = usePermisos();
-  const { cat } = useCatalogos(true);
+  const { cat, recargar: recargarCatalogos } = useCatalogos(true);
+  const [creandoProveedor, setCreandoProveedor] = useState(false);
   const [sol, setSol] = useState<VSolicitud | null>(null);
   const [articulos, setArticulos] = useState<VArticulo[] | null>(null);
   const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([]);
@@ -315,6 +317,7 @@ export function PedidoMantenimiento() {
             </select>
           </label>
           <Boton disabled={!nuevoProveedor} onClick={() => { setExtras((x) => [...x, nuevoProveedor]); setNuevoProveedor(''); }}>Agregar proveedor</Boton>
+          <Boton onClick={() => setCreandoProveedor(true)}>+ Proveedor nuevo</Boton>
           {sinElegirConPrecio.length > 0 ? <Boton cargando={ocupado === 'minimos'} onClick={() => void elegirMinimos()}>
             Elegir el más barato de cada artículo ({sinElegirConPrecio.length})</Boton> : null}
         </div>
@@ -466,6 +469,8 @@ export function PedidoMantenimiento() {
         {ordenPorProveedor.size > 0 ? <div className="acciones-fila no-imprimir"><Boton onClick={imprimir}>Imprimir la orden</Boton></div> : null}
       </section>
 
+      <ProveedorFormulario abierto={creandoProveedor} alCerrar={() => setCreandoProveedor(false)}
+        alGuardar={async (nuevo) => { await recargarCatalogos(); setExtras((x) => [...x, nuevo.id]); }} />
       <ModalConfirmar abierto={confirmarOrden} titulo="Generar la orden de compra" etiqueta="Registrar la compra"
         texto={`Se registrará la compra de ${aprobadasListas.length} artículo(s) aprobados, por ${pesos(aprobadasListas.reduce((s, { a }) => { const c = elegida(a.id); return s + (c ? importeDe(c) : 0); }, 0))}, con fecha ${fmtFecha(fechaCompra)}. Después los artículos pasan a «comprado».`}
         alConfirmar={async () => { await registrarOrden(); }} alCerrar={() => setConfirmarOrden(false)} />
