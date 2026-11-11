@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase, rpc, limpiarError, nuevoOp } from '../supabase.ts';
 import { useSesion } from '../contexto/Sesion.tsx';
@@ -19,8 +19,18 @@ interface HistorialFila {
   motivo: string | null; anterior: Record<string, unknown> | null; nuevo: Record<string, unknown> | null;
 }
 
-export function ArticuloGestion() {
-  const { id } = useParams<{ id: string }>();
+/**
+ * Ficha de gestión de un artículo. Se usa como página (/gestion/articulo/:id) y
+ * dentro de un panel lateral (`idArticulo` + `enPanel`). `alCambiar` recibe el
+ * artículo actualizado para que la lista refresque solo esa fila.
+ */
+export function ArticuloGestion({ idArticulo, enPanel, alCambiar }: {
+  idArticulo?: string; enPanel?: boolean; alCambiar?: (a: VArticulo) => void;
+} = {}) {
+  const { id: idRuta } = useParams<{ id: string }>();
+  const id = idArticulo ?? idRuta;
+  const alCambiarRef = useRef(alCambiar);
+  alCambiarRef.current = alCambiar;
   const { tiene } = useSesion();
   const { cat } = useCatalogos();
   const esGestor = tiene('compras') || tiene('administrador');
@@ -55,6 +65,7 @@ export function ArticuloGestion() {
     if (!r.data) { setNoEncontrado(true); return; }
     const art = r.data as VArticulo;
     setA(art);
+    alCambiarRef.current?.(art);
     const [rc, rap, rm, rn, rh] = await Promise.all([
       supabase.from('cotizaciones').select('*').eq('articulo_id', id).order('creado_en'),
       supabase.from('aprobaciones').select('*').eq('articulo_id', id).order('creado_en', { ascending: false }),
@@ -129,6 +140,8 @@ export function ArticuloGestion() {
     const cantidad = parseNumero(mMov.cantidad);
     if (cantidad === null || cantidad <= 0) { setMError('Cantidad inválida.'); return; }
     if (!mMov.fecha) { setMError('Indica la fecha efectiva.'); return; }
+    const bloqueo = errorCantidadMov(mMov);
+    if (bloqueo) { setMError(bloqueo); return; }
     setOcupado(true);
     try {
       if (mMov.tipo === 'entrega_directa') {
@@ -159,9 +172,22 @@ export function ArticuloGestion() {
     pendiente: a.pendiente_llegada ?? 0
   };
 
+  // Entregas: no pueden superar lo disponible en almacén (el servidor también lo valida).
+  function errorCantidadMov(m: NonNullable<typeof mMov>): string | undefined {
+    const c = parseNumero(m.cantidad);
+    if (c === null || c <= 0) return undefined;
+    if (m.tipo === 'entrega' && c > saldos.disponible) {
+      return `Solo hay ${fmtCantidad(saldos.disponible)} disponible(s) en almacén; no se puede entregar ${fmtCantidad(c)}.`;
+    }
+    if (m.tipo === 'entrega_directa' && c > saldos.pendiente) {
+      return `Solo quedan ${fmtCantidad(saldos.pendiente)} por llegar; no se puede entregar ${fmtCantidad(c)}.`;
+    }
+    return undefined;
+  }
+
   return (
-    <div className="contenido">
-      <p><Link to="/gestion">← Gestión de compras</Link> · <Link to={`/solicitudes/${a.solicitud_id}`}>{a.solicitud_numero}</Link></p>
+    <div className={enPanel ? 'contenido-panel' : 'contenido'}>
+      <p>{enPanel ? <Link to={`/gestion/articulo/${a.id}`}>Abrir en página completa</Link> : <Link to="/gestion">← Gestión de compras</Link>} · <Link to={`/solicitudes/${a.solicitud_id}`}>{a.solicitud_numero}</Link></p>
       <div className="acciones-fila">
         <h1 style={{ margin: 0 }}>{a.nombre}</h1>
         <InsigniaEtapa etapa={a.etapa} />
@@ -711,7 +737,7 @@ export function ArticuloGestion() {
               </select>
             </Campo>
             <div className="fila-campos">
-              <Campo etiqueta="Cantidad" requerido>
+              <Campo etiqueta="Cantidad" requerido error={errorCantidadMov(mMov)}>
                 <input inputMode="decimal" value={mMov.cantidad} onChange={(e) => setMMov({ ...mMov, cantidad: e.target.value })} />
               </Campo>
               <Campo etiqueta="Fecha efectiva (declarada)" requerido>
@@ -737,7 +763,7 @@ export function ArticuloGestion() {
             <MensajeError texto={mError} />
             <div className="modal-acciones">
               <button type="button" className="boton-secundario" onClick={() => setMMov(null)}>Cancelar</button>
-              <button type="submit" className="boton-primario" disabled={ocupado}>{ocupado ? 'Guardando…' : 'Registrar'}</button>
+              <button type="submit" className="boton-primario" disabled={ocupado || !!errorCantidadMov(mMov)}>{ocupado ? 'Guardando…' : 'Registrar'}</button>
             </div>
           </form>
         ) : null}

@@ -500,3 +500,18 @@ button.miniatura-articulo { cursor: zoom-in; }
 .tiempo-rechazada .tiempo-marca, .tiempo-cancelada .tiempo-marca { border-color: var(--peligro); color: #fff; background: var(--peligro); }
 .tiempo-rechazada .tiempo-estado, .tiempo-cancelada .tiempo-estado { border-color: var(--peligro); color: var(--peligro); background: var(--peligro-claro); }
 .tiempo-omitida .tiempo-cuerpo { opacity: 0.8; }
+
+/* ===================== Fase 3: bandejas ===================== */
+.th-orden { background: none; border: none; padding: 0; font: inherit; font-weight: 600; color: inherit; cursor: pointer; display: inline-flex; gap: var(--e1); align-items: center; min-height: 0; }
+.th-orden:hover { color: var(--primario); }
+/* Atrasos resaltados con discreción: borde ámbar a la izquierda y texto, sin pintar la fila */
+.tabla-datos tr.fila-atraso > td:first-child { box-shadow: inset 3px 0 0 var(--aviso); }
+.texto-aviso { color: var(--aviso); font-weight: 600; }
+.contenido-panel { padding: 0; }
+.mas-filtros summary, .mas-opciones summary { min-height: 0; }
+.fila-devolucion { border-bottom: 1px dashed var(--borde); padding: var(--e2) 0; }
+.revision { display: grid; gap: var(--e2); }
+.lista-revision { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e3); }
+.lista-revision li { display: grid; grid-template-columns: auto 1fr; gap: var(--e3); align-items: start; overflow-wrap: anywhere; }
+.recibido { display: grid; gap: var(--e1); min-width: 7rem; }
+.recibido progress { width: 100%; height: 0.5rem; accent-color: var(--primario); }

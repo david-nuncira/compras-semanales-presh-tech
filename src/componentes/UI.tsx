@@ -327,6 +327,8 @@ const ENFOCABLES = 'a[href],button:not([disabled]),input:not([disabled]):not([ty
  * Atrapa el foco dentro del contenedor, cierra con Esc, bloquea el scroll del
  * fondo y devuelve el foco al elemento que abrió el diálogo.
  */
+const PILA_DIALOGOS: symbol[] = [];
+
 export function useDialogoAccesible(abierto: boolean, alCerrar: () => void, ref: React.RefObject<HTMLElement>) {
   const cerrarRef = useRef(alCerrar);
   cerrarRef.current = alCerrar;
@@ -334,10 +336,14 @@ export function useDialogoAccesible(abierto: boolean, alCerrar: () => void, ref:
     if (!abierto) return;
     const previo = document.activeElement as HTMLElement | null;
     const contenedor = ref.current;
+    // Con diálogos anidados (p. ej. un modal dentro de un panel) solo el de arriba responde.
+    const ficha = Symbol('dialogo');
+    PILA_DIALOGOS.push(ficha);
     const lista = () => Array.from(contenedor?.querySelectorAll<HTMLElement>(ENFOCABLES) ?? []);
     const cuerpo = contenedor?.querySelector<HTMLElement>('[data-cuerpo]');
     (cuerpo?.querySelector<HTMLElement>(ENFOCABLES) ?? lista()[0] ?? contenedor)?.focus();
     const tecla = (e: KeyboardEvent) => {
+      if (PILA_DIALOGOS[PILA_DIALOGOS.length - 1] !== ficha) return;
       if (e.key === 'Escape') { e.stopPropagation(); cerrarRef.current(); return; }
       if (e.key !== 'Tab') return;
       const f = lista();
@@ -352,6 +358,8 @@ export function useDialogoAccesible(abierto: boolean, alCerrar: () => void, ref:
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', tecla);
+      const pos = PILA_DIALOGOS.indexOf(ficha);
+      if (pos >= 0) PILA_DIALOGOS.splice(pos, 1);
       document.body.style.overflow = desbordeAnterior;
       if (previo && document.contains(previo)) previo.focus();
     };
@@ -519,6 +527,10 @@ export function Pestanas({ pestanas, activa, alCambiar, etiqueta }: {
 
 export interface ColumnaDatos<T> {
   clave: string; titulo: string; render: (fila: T) => ReactNode; numerico?: boolean; ancho?: string;
+  /** Muestra un botón de orden en el encabezado (requiere `alOrdenar` en la tabla). */
+  ordenable?: boolean;
+  /** Oculta la columna en pantallas pequeñas. */
+  ocultoMovil?: boolean;
 }
 
 /**
@@ -526,10 +538,13 @@ export interface ColumnaDatos<T> {
  * estado de error con reintento y estado vacío con acción sugerida.
  * Solo la tabla se desplaza horizontalmente dentro de su contenedor.
  */
-export function TablaDatos<T>({ titulo, columnas, filas, clave, error, alReintentar, vacio }: {
+export function TablaDatos<T>({ titulo, columnas, filas, clave, error, alReintentar, vacio, orden, alOrdenar, claseFila }: {
   titulo: string; columnas: ColumnaDatos<T>[]; filas: T[] | null; clave: (fila: T) => string;
   error?: string | null; alReintentar?: () => void; vacio?: ReactNode;
+  orden?: { clave: string; dir: 'asc' | 'desc' }; alOrdenar?: (clave: string) => void;
+  claseFila?: (fila: T) => string | undefined;
 }) {
+  const clases = (c: ColumnaDatos<T>) => [c.numerico ? 'numero' : '', c.ocultoMovil ? 'oculto-movil' : ''].filter(Boolean).join(' ') || undefined;
   if (error) return <EstadoError mensaje={error} alReintentar={alReintentar} />;
   if (filas && filas.length === 0) return <>{vacio ?? <EstadoVacio titulo="No hay registros" />}</>;
   return (
@@ -537,17 +552,25 @@ export function TablaDatos<T>({ titulo, columnas, filas, clave, error, alReinten
       <table className="tabla tabla-datos">
         <caption className="solo-lectores">{titulo}</caption>
         <thead>
-          <tr>{columnas.map((c) => (
-            <th key={c.clave} scope="col" className={c.numerico ? 'numero' : undefined} style={c.ancho ? { width: c.ancho } : undefined}>{c.titulo}</th>
-          ))}</tr>
+          <tr>{columnas.map((c) => {
+            const activa = !!orden && orden.clave === c.clave;
+            return (
+              <th key={c.clave} scope="col" className={clases(c)} style={c.ancho ? { width: c.ancho } : undefined}
+                aria-sort={c.ordenable && activa ? (orden!.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+                {c.ordenable && alOrdenar
+                  ? <button type="button" className="th-orden" onClick={() => alOrdenar(c.clave)}>{c.titulo} <span aria-hidden="true">{activa ? (orden!.dir === 'asc' ? '▲' : '▼') : '↕'}</span></button>
+                  : c.titulo}
+              </th>
+            );
+          })}</tr>
         </thead>
         <tbody>
           {filas === null
             ? Array.from({ length: 5 }, (_, i) => (
-                <tr key={i} aria-hidden="true">{columnas.map((c) => <td key={c.clave}><span className="esqueleto-linea" style={{ height: 14 }} /></td>)}</tr>
+                <tr key={i} aria-hidden="true">{columnas.map((c) => <td key={c.clave} className={clases(c)}><span className="esqueleto-linea" style={{ height: 14 }} /></td>)}</tr>
               ))
             : filas.map((f) => (
-                <tr key={clave(f)}>{columnas.map((c) => <td key={c.clave} className={c.numerico ? 'numero' : undefined}>{c.render(f)}</td>)}</tr>
+                <tr key={clave(f)} className={claseFila?.(f)}>{columnas.map((c) => <td key={c.clave} className={clases(c)}>{c.render(f)}</td>)}</tr>
               ))}
         </tbody>
       </table>

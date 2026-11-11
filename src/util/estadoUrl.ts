@@ -22,14 +22,14 @@ export function useEstadoURL<T extends { [K in keyof T]: Valor }>(vacio: T) {
   const pagina = Math.max(1, parseInt(params.get('pagina') ?? '1', 10) || 1);
 
   /** Cambia filtros y vuelve a la página 1. */
-  const cambiar = useCallback((p: Partial<T>) => {
+  const cambiar = useCallback((p: Partial<T>, opciones?: { conservarPagina?: boolean }) => {
     setParams((prev) => {
       const n = new URLSearchParams(prev);
       for (const [k, v] of Object.entries(p)) {
         if (v === base[k] || v === '' || v === false) n.delete(k);
         else n.set(k, v === true ? '1' : String(v));
       }
-      n.delete('pagina');
+      if (!opciones?.conservarPagina) n.delete('pagina');
       return n;
     }, { replace: true });
   }, [setParams, base]);
